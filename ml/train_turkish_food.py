@@ -16,6 +16,34 @@ FINE_TUNE_EPOCHS = int(os.getenv("FINE_TUNE_EPOCHS", "1"))
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "ml/output"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+CANONICAL_LABELS = [
+    "asure",
+    "baklava",
+    "biber_dolmasi",
+    "borek",
+    "cig_kofte",
+    "enginar",
+    "et_sote",
+    "gozleme",
+    "hamsi",
+    "hunkar_begendi",
+    "icli_kofte",
+    "ispanak",
+    "izmir_kofte",
+    "karniyarik",
+    "kebap",
+    "kisir",
+    "kuru_fasulye",
+    "lahmacun",
+    "lokum",
+    "manti",
+    "mucver",
+    "pirinc_pilavi",
+    "simit",
+    "taze_fasulye",
+    "yaprak_sarma",
+]
+
 
 def make_tf_dataset(split, training: bool):
     ds = hf[split]
@@ -39,9 +67,14 @@ def make_tf_dataset(split, training: bool):
 
 print(f"Loading {DATASET_NAME}...")
 hf = load_dataset(DATASET_NAME)
-label_names = hf["train"].features["label"].names
-num_classes = len(label_names)
-print(f"Classes: {num_classes} -> {label_names}")
+dataset_labels = hf["train"].features["label"].names
+num_classes = len(dataset_labels)
+if num_classes != len(CANONICAL_LABELS):
+    raise RuntimeError(
+        f"Unexpected class count: dataset={num_classes}, expected={len(CANONICAL_LABELS)}"
+    )
+print(f"Dataset labels: {dataset_labels}")
+print(f"Canonical mobile labels: {CANONICAL_LABELS}")
 
 train_ds = make_tf_dataset("train", training=True)
 val_ds = make_tf_dataset("eval", training=False)
@@ -129,15 +162,26 @@ labels_path = OUTPUT_DIR / "turkish_food_labels.txt"
 metrics_path = OUTPUT_DIR / "metrics.json"
 
 model_path.write_bytes(tflite_model)
-labels_path.write_text("\n".join(label_names) + "\n", encoding="utf-8")
+labels_path.write_text("\n".join(CANONICAL_LABELS) + "\n", encoding="utf-8")
+
+interpreter = tf.lite.Interpreter(model_path=str(model_path))
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()[0]
+output_details = interpreter.get_output_details()[0]
 
 metrics = {
     "dataset": DATASET_NAME,
+    "dataset_labels": dataset_labels,
+    "mobile_labels": CANONICAL_LABELS,
     "image_size": IMAGE_SIZE,
     "classes": num_classes,
     "test_loss": float(test_loss),
     "test_accuracy": float(test_accuracy),
     "model_bytes": model_path.stat().st_size,
+    "input_shape": input_details["shape"].tolist(),
+    "input_dtype": str(input_details["dtype"]),
+    "output_shape": output_details["shape"].tolist(),
+    "output_dtype": str(output_details["dtype"]),
     "head_epochs_requested": HEAD_EPOCHS,
     "fine_tune_epochs_requested": FINE_TUNE_EPOCHS,
     "head_best_val_accuracy": float(max(history_head.history.get("val_accuracy", [0.0]))),
