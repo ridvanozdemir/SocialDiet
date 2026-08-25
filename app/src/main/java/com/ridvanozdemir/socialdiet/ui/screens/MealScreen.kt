@@ -39,8 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import com.ridvanozdemir.socialdiet.data.FirebaseRepository
+import com.ridvanozdemir.socialdiet.data.ai.FoodClassPrediction
 import com.ridvanozdemir.socialdiet.data.ai.FoodNutritionAnalyzer
 import com.ridvanozdemir.socialdiet.data.ai.NutritionPrediction
+import com.ridvanozdemir.socialdiet.data.ai.TurkishFoodClassifier
+import com.ridvanozdemir.socialdiet.data.ai.TurkishNutritionReference
 import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -55,20 +58,51 @@ fun MealScreen(
 ) {
     val context = LocalContext.current
     val analyzer = remember { FoodNutritionAnalyzer(context.applicationContext) }
+    val classifier = remember { TurkishFoodClassifier(context.applicationContext) }
     val scope = rememberCoroutineScope()
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
+    var rawPrediction by remember { mutableStateOf<NutritionPrediction?>(null) }
     var prediction by remember { mutableStateOf<NutritionPrediction?>(null) }
+    var foodPredictions by remember { mutableStateOf<List<FoodClassPrediction>>(emptyList()) }
+    var selectedFoodKey by remember { mutableStateOf<String?>(null) }
+    var calorieSource by remember { mutableStateOf("image2nutrition") }
     var isAnalyzing by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     var selectedMealType by remember { mutableStateOf("LUNCH") }
     var massText by remember { mutableStateOf("") }
     var caloriesText by remember { mutableStateOf("") }
 
-    DisposableEffect(analyzer) {
-        onDispose { analyzer.close() }
+    DisposableEffect(analyzer, classifier) {
+        onDispose {
+            analyzer.close()
+            classifier.close()
+        }
+    }
+
+    fun resetAnalysis() {
+        rawPrediction = null
+        prediction = null
+        foodPredictions = emptyList()
+        selectedFoodKey = null
+        calorieSource = "image2nutrition"
+        massText = ""
+        caloriesText = ""
+    }
+
+    fun applyFoodCalibration(foodKey: String?) {
+        val raw = rawPrediction ?: return
+        val reference = TurkishNutritionReference.forFood(foodKey)
+        val calibrated = if (reference != null) {
+            raw.copy(caloriesPer100g = reference.caloriesPer100g)
+        } else {
+            raw
+        }
+        prediction = calibrated
+        calorieSource = if (reference != null) "turkomp+classifier" else "image2nutrition"
+        caloriesText = calibrated.totalCalories.toString()
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -76,9 +110,7 @@ fun MealScreen(
     ) { uri ->
         if (uri != null) {
             selectedImageUri = uri
-            prediction = null
-            massText = ""
-            caloriesText = ""
+            resetAnalysis()
             statusMessage = "Galeriden fotoğraf seçildi."
         }
     }
@@ -89,9 +121,7 @@ fun MealScreen(
         val uri = pendingCameraUri
         if (saved && uri != null) {
             selectedImageUri = uri
-            prediction = null
-            massText = ""
-            caloriesText = ""
+            resetAnalysis()
             statusMessage = "Fotoğraf çekildi."
         } else {
             statusMessage = "Fotoğraf çekimi iptal edildi."
@@ -161,40 +191,67 @@ fun MealScreen(
                                 scaleType = ImageView.ScaleType.CENTER_CROP
                             }
                         },
-                        update = { imageView ->
-                            imageView.setImageURI(uri)
-                        }
+                        update = { imageView -> imageView.setImageURI(uri) }
                     )
 
                     Column(
                         modifier = Modifier.padding(horizontal = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            "Fotoğraf hazır",
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Text("Fotoğraf hazır", style = MaterialTheme.typography.titleMedium)
 
                         Button(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isAnalyzing,
                             onClick = {
                                 isAnalyzing = true
-                                prediction = null
+                                resetAnalysis()
                                 statusMessage = "AI analizi yapılıyor..."
 
                                 scope.launch {
                                     val result = runCatching {
                                         withContext(Dispatchers.Default) {
-                                            analyzer.analyze(uri)
+                                            val nutrition = analyzer.analyze(uri)
+                                            val classes = runCatching {
+                                                classifier.classify(uri)
+                                            }.getOrDefault(emptyList())
+                                            nutrition to classes
                                         }
                                     }
 
-                                    result.onSuccess { value ->
-                                        prediction = value
-                                        massText = value.massGrams.roundToInt().toString()
-                                        caloriesText = value.totalCalories.toString()
-                                        statusMessage = "AI tahmini hazır."
+                                    result.onSuccess { (nutrition, classes) ->
+                                        rawPrediction = nutrition
+                                        foodPredictions = classes
+                                        val top = classes.firstOrNull()
+                                        val autoFood = top?.takeIf {
+                                            it.confidence >= AUTO_LABEL_CONFIDENCE
+                                        }?.key
+                                        selectedFoodKey = autoFood
+
+                                        val autoReference = top?.takeIf {
+                                            it.confidence >= AUTO_REFERENCE_CONFIDENCE
+                                        }?.let { TurkishNutritionReference.forFood(it.key) }
+
+                                        val calibrated = if (autoReference != null) {
+                                            nutrition.copy(
+                                                caloriesPer100g = autoReference.caloriesPer100g
+                                            )
+                                        } else {
+                                            nutrition
+                                        }
+                                        prediction = calibrated
+                                        calorieSource = if (autoReference != null) {
+                                            "turkomp+classifier"
+                                        } else {
+                                            "image2nutrition"
+                                        }
+                                        massText = nutrition.massGrams.roundToInt().toString()
+                                        caloriesText = calibrated.totalCalories.toString()
+                                        statusMessage = if (classes.isEmpty()) {
+                                            "Kalori tahmini hazır. Türk yemeği modeli bu derlemede bulunamadı."
+                                        } else {
+                                            "Çift model AI tahmini hazır."
+                                        }
                                     }.onFailure { error ->
                                         statusMessage =
                                             "AI analizi başarısız: ${error.message ?: "Bilinmeyen hata"}"
@@ -203,19 +260,14 @@ fun MealScreen(
                                 }
                             }
                         ) {
-                            if (isAnalyzing) {
-                                CircularProgressIndicator()
-                            } else {
-                                Text("AI ile Analiz Et")
-                            }
+                            if (isAnalyzing) CircularProgressIndicator()
+                            else Text("AI ile Analiz Et")
                         }
 
                         TextButton(
                             onClick = {
                                 selectedImageUri = null
-                                prediction = null
-                                massText = ""
-                                caloriesText = ""
+                                resetAnalysis()
                                 statusMessage = null
                             }
                         ) {
@@ -229,12 +281,19 @@ fun MealScreen(
         prediction?.let { ai ->
             NutritionResultCard(
                 prediction = ai,
+                foodPredictions = foodPredictions,
+                selectedFoodKey = selectedFoodKey,
+                onFoodSelected = { food ->
+                    selectedFoodKey = food.key
+                    applyFoodCalibration(food.key)
+                },
                 massText = massText,
                 onMassChanged = { massText = it.filterAllowedDecimal() },
                 caloriesText = caloriesText,
                 onCaloriesChanged = { caloriesText = it.filter(Char::isDigit) },
                 selectedMealType = selectedMealType,
                 onMealTypeSelected = { selectedMealType = it },
+                calorieSource = calorieSource,
                 isSaving = isSaving,
                 onSave = {
                     val mass = massText.toFloatOrNull()
@@ -249,12 +308,18 @@ fun MealScreen(
                         return@NutritionResultCard
                     }
 
-                    val aiCalories = ai.totalCalories
+                    val selectedClass = foodPredictions.firstOrNull {
+                        it.key == selectedFoodKey
+                    }
+
                     isSaving = true
                     repository.saveMeal(
                         userId = userId,
                         mealType = selectedMealType,
-                        aiCalories = aiCalories,
+                        aiLabel = selectedClass?.displayName ?: "image2nutrition",
+                        aiConfidence = selectedClass?.confidence?.toDouble(),
+                        calorieSource = calorieSource,
+                        aiCalories = ai.totalCalories,
                         confirmedCalories = confirmedCalories,
                         estimatedMassGrams = mass.toDouble(),
                         fatGrams = ai.fatGramsFor(mass).toDouble(),
@@ -264,9 +329,7 @@ fun MealScreen(
                         isSaving = false
                         result.onSuccess {
                             selectedImageUri = null
-                            prediction = null
-                            massText = ""
-                            caloriesText = ""
+                            resetAnalysis()
                             statusMessage = "Öğün kaydedildi."
                         }.onFailure { error ->
                             statusMessage =
@@ -277,13 +340,11 @@ fun MealScreen(
             )
         }
 
-        statusMessage?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium)
-        }
+        statusMessage?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
 
         Text(
             "Not: Fotoğraftan kalori ve porsiyon hesabı yaklaşık bir AI tahminidir. " +
-                "Kaydetmeden önce porsiyon ve kaloriyi düzeltebilirsin.",
+                "Kaydetmeden önce yemek türünü, porsiyonu ve kaloriyi düzeltebilirsin.",
             style = MaterialTheme.typography.bodySmall
         )
     }
@@ -292,12 +353,16 @@ fun MealScreen(
 @Composable
 private fun NutritionResultCard(
     prediction: NutritionPrediction,
+    foodPredictions: List<FoodClassPrediction>,
+    selectedFoodKey: String?,
+    onFoodSelected: (FoodClassPrediction) -> Unit,
     massText: String,
     onMassChanged: (String) -> Unit,
     caloriesText: String,
     onCaloriesChanged: (String) -> Unit,
     selectedMealType: String,
     onMealTypeSelected: (String) -> Unit,
+    calorieSource: String,
     isSaving: Boolean,
     onSave: () -> Unit
 ) {
@@ -310,8 +375,35 @@ private fun NutritionResultCard(
         ) {
             Text("AI tahmini", style = MaterialTheme.typography.titleLarge)
 
+            if (foodPredictions.isNotEmpty()) {
+                Text("Yemek tanıma", style = MaterialTheme.typography.titleSmall)
+                foodPredictions.forEach { food ->
+                    FilterChip(
+                        selected = selectedFoodKey == food.key,
+                        onClick = { onFoodSelected(food) },
+                        label = {
+                            Text(
+                                "${food.displayName} • %${(food.confidence * 100).roundToInt()}"
+                            )
+                        }
+                    )
+                }
+                if (foodPredictions.first().confidence < AUTO_LABEL_CONFIDENCE) {
+                    Text(
+                        "Model yemek türünden emin değil; en yakın üç sonucu gösteriyoruz.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            Text("Kalori yoğunluğu: ${format1(prediction.caloriesPer100g)} kcal / 100 g")
             Text(
-                "Model: ${format1(prediction.caloriesPer100g)} kcal / 100 g"
+                if (calorieSource == "turkomp+classifier") {
+                    "Kalori kaynağı: Türk yemeği sınıfı + TürKomp referansı"
+                } else {
+                    "Kalori kaynağı: görüntü regresyon modeli"
+                },
+                style = MaterialTheme.typography.bodySmall
             )
 
             OutlinedTextField(
@@ -340,31 +432,22 @@ private fun NutritionResultCard(
             )
 
             Text("Öğün türü", style = MaterialTheme.typography.titleSmall)
-            MealTypeChips(
-                selected = selectedMealType,
-                onSelected = onMealTypeSelected
-            )
+            MealTypeChips(selected = selectedMealType, onSelected = onMealTypeSelected)
 
             Button(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isSaving,
                 onClick = onSave
             ) {
-                if (isSaving) {
-                    CircularProgressIndicator()
-                } else {
-                    Text("Öğünü Kaydet")
-                }
+                if (isSaving) CircularProgressIndicator()
+                else Text("Öğünü Kaydet")
             }
         }
     }
 }
 
 @Composable
-private fun MealTypeChips(
-    selected: String,
-    onSelected: (String) -> Unit
-) {
+private fun MealTypeChips(selected: String, onSelected: (String) -> Unit) {
     val mealTypes = listOf(
         "BREAKFAST" to "Kahvaltı",
         "LUNCH" to "Öğle",
@@ -418,3 +501,6 @@ private fun String.filterAllowedDecimal(): String {
 
 private fun format1(value: Float): String =
     String.format(Locale.getDefault(), "%.1f", value)
+
+private const val AUTO_LABEL_CONFIDENCE = 0.55f
+private const val AUTO_REFERENCE_CONFIDENCE = 0.70f
