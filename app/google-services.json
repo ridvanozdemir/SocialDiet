@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "718179163890",
+    "project_id": "socialdiet-1a7f8",
+    "storage_bucket": "socialdiet-1a7f8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:718179163890:android:9b610c41cee5d3cb053a6b",
+        "android_client_info": {
+          "package_name": "com.ridvanozdemir.socialdiet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAdqZK0TRdNLT0GMy_FwjKWFVlb6WyqT68"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
