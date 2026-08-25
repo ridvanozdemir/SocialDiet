@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    match /usernames/{username} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/usernames/$(username));
+      allow update, delete: if false;
+    }
+
+    match /users/{uid} {
+      allow create: if isOwner(uid) && request.resource.data.uid == uid;
+      allow read: if isOwner(uid);
+      allow update: if isOwner(uid) && request.resource.data.uid == uid;
+      allow delete: if isOwner(uid);
+
+      match /weights/{entryId} {
+        allow read, create, update, delete: if isOwner(uid);
+      }
+    }
+
+    match /meals/{mealId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /friendships/{friendshipId} {
+      allow create: if signedIn()
+        && (request.resource.data.userA == request.auth.uid
+          || request.resource.data.userB == request.auth.uid);
+      allow read: if signedIn()
+        && (resource.data.userA == request.auth.uid
+          || resource.data.userB == request.auth.uid);
+      allow update: if signedIn()
+        && (resource.data.userA == request.auth.uid
+          || resource.data.userB == request.auth.uid)
+        && request.resource.data.userA == resource.data.userA
+        && request.resource.data.userB == resource.data.userB;
+      allow delete: if signedIn()
+        && (resource.data.userA == request.auth.uid
+          || resource.data.userB == request.auth.uid);
+    }
+
+    match /dailyStats/{statId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
