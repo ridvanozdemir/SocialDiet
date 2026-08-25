@@ -7,3 +7,6 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+
+# Downloaded during CI from the pinned open-source source revision.
+app/src/main/assets/image2nutrition.tflite

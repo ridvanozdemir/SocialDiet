@@ -12,12 +12,16 @@ android {
         applicationId = "com.ridvanozdemir.socialdiet"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildFeatures {
         compose = true
+    }
+
+    androidResources {
+        noCompress += "tflite"
     }
 
     compileOptions {
@@ -39,6 +43,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.navigation:navigation-compose:2.9.8")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
     implementation("com.google.firebase:firebase-auth")
@@ -49,4 +54,8 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.6.1")
     implementation("androidx.camera:camera-lifecycle:1.6.1")
     implementation("androidx.camera:camera-view:1.6.1")
+
+    // LiteRT 1.x keeps the familiar org.tensorflow.lite.Interpreter API
+    // while providing 16 KB page-size compatible native libraries.
+    implementation("com.google.ai.edge.litert:litert:1.4.2")
 }

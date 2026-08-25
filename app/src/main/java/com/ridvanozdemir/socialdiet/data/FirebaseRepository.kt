@@ -9,7 +9,6 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.ridvanozdemir.socialdiet.data.model.UserProfile
 import java.util.Locale
 
-
 data class RegistrationInput(
     val email: String,
     val password: String,
@@ -164,6 +163,48 @@ class FirebaseRepository(
                     .addOnSuccessListener { onResult(Result.success(Unit)) }
                     .addOnFailureListener { onResult(Result.failure(it)) }
             }
+            .addOnFailureListener { onResult(Result.failure(it)) }
+    }
+
+    fun saveMeal(
+        userId: String,
+        mealType: String,
+        aiCalories: Int,
+        confirmedCalories: Int,
+        estimatedMassGrams: Double,
+        fatGrams: Double,
+        carbsGrams: Double,
+        proteinGrams: Double,
+        onResult: (Result<Unit>) -> Unit
+    ) {
+        if (currentUserId != userId) {
+            onResult(Result.failure(IllegalStateException("Bu kullanıcı için öğün kaydedilemez.")))
+            return
+        }
+
+        if (confirmedCalories !in 0..10000 || estimatedMassGrams !in 1.0..5000.0) {
+            onResult(Result.failure(IllegalArgumentException("Öğün değerleri geçersiz.")))
+            return
+        }
+
+        val mealRef = firestore.collection("meals").document()
+        val meal = hashMapOf<String, Any?>(
+            "id" to mealRef.id,
+            "userId" to userId,
+            "mealType" to mealType,
+            "imageUrl" to null,
+            "aiLabel" to "image2nutrition",
+            "aiCalories" to aiCalories,
+            "confirmedCalories" to confirmedCalories,
+            "estimatedMassGrams" to estimatedMassGrams,
+            "fatGrams" to fatGrams,
+            "carbsGrams" to carbsGrams,
+            "proteinGrams" to proteinGrams,
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+
+        mealRef.set(meal)
+            .addOnSuccessListener { onResult(Result.success(Unit)) }
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
 

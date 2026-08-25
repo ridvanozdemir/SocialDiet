@@ -90,7 +90,12 @@ private fun MainApp(repository: FirebaseRepository, userId: String) {
         ) {
             composable("home") { HomeScreen() }
             composable("friends") { FriendsScreen() }
-            composable("meal") { MealScreen() }
+            composable("meal") {
+                MealScreen(
+                    repository = repository,
+                    userId = userId
+                )
+            }
             composable("leaderboard") { LeaderboardScreen() }
             composable("profile") {
                 ProfileScreen(
