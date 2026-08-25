@@ -1,0 +1,90 @@
+name: Train Turkish Food Model
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "ml/**"
+      - ".github/workflows/train-turkish-food-model.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  train-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      HF_HOME: ${{ runner.temp }}/huggingface
+      TF_CPP_MIN_LOG_LEVEL: "2"
+      HEAD_EPOCHS: "4"
+      FINE_TUNE_EPOCHS: "1"
+      BATCH_SIZE: "64"
+      IMAGE_SIZE: "160"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install training dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "tensorflow-cpu==2.19.1" "datasets==3.6.0" "pillow==11.2.1"
+
+      - name: Train MobileNetV3 TurkishFoods-25 classifier
+        run: python ml/train_turkish_food.py
+
+      - name: Show model metrics
+        run: cat ml/output/metrics.json
+
+      - name: Upload trained Turkish classifier
+        uses: actions/upload-artifact@v4
+        with:
+          name: socialdiet-turkish-food-model
+          path: |
+            ml/output/turkish_food_classifier.tflite
+            ml/output/turkish_food_labels.txt
+            ml/output/metrics.json
+          retention-days: 90
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Prepare AI assets
+        run: |
+          mkdir -p app/src/main/assets
+          cp ml/output/turkish_food_classifier.tflite app/src/main/assets/turkish_food_classifier.tflite
+          cp ml/output/turkish_food_labels.txt app/src/main/assets/turkish_food_labels.txt
+          curl --fail --location --retry 3 \
+            --output app/src/main/assets/image2nutrition.tflite \
+            "https://raw.githubusercontent.com/dant4ick/plate_track_ai/54ceb65915dc708f452b9f6830f1eb9ac27d17a5/assets/ml/image2nutrition.tflite"
+          test "$(stat -c%s app/src/main/assets/image2nutrition.tflite)" -eq 26371792
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+
+      - name: Build V0.3 debug APK
+        run: gradle :app:assembleDebug
+
+      - name: Upload V0.3 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: socialdiet-v0.3-turkish-ai-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 90
