@@ -9,9 +9,9 @@ object TurkishNutritionReference {
     private val references = mapOf(
         // TürKomp values are per edible 100 g. Generic classes use an average
         // where TürKomp has more than one close regional/type match.
+        "asure" to CalorieReference(94f, "TürKomp"),
         "baklava" to CalorieReference(435f, "TürKomp"),
         "borek" to CalorieReference(284f, "TürKomp"),
-        "kebap" to CalorieReference(302f, "TürKomp"),
         "lokum" to CalorieReference(359f, "TürKomp"),
         "manti" to CalorieReference(286f, "TürKomp"),
         "simit" to CalorieReference(368f, "TürKomp")
