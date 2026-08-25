@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      HF_HOME: ${{ runner.temp }}/huggingface
+      HF_HOME: /tmp/huggingface
       TF_CPP_MIN_LOG_LEVEL: "2"
       HEAD_EPOCHS: "4"
       FINE_TUNE_EPOCHS: "1"
