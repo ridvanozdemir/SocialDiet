@@ -4,22 +4,38 @@ Android-first social diet application prototype.
 
 ## V1 scope
 
-- Email/password authentication
+- Firebase email/password authentication
+- Unique username claim stored in Firestore
 - User profile with start/current/target weight
-- Friend requests and accepted friends
-- Meal photo from camera/gallery
-- On-device AI calorie estimate + user correction
+- Friend requests and accepted friends (next implementation milestone)
+- Meal photo from camera/gallery (next implementation milestone)
+- On-device AI calorie estimate + user correction (next implementation milestone)
 - Daily calorie total
 - Daily and weekly leaderboard based on target adherence
 - Program completion when target weight is reached
 
-## Firestore draft schema
+## Firebase
+
+Project: `socialdiet-1a7f8`
+
+Android package: `com.ridvanozdemir.socialdiet`
+
+The Android Firebase configuration is stored at `app/google-services.json`. Firebase Android API keys are app configuration identifiers; application data must be protected by Authentication, Firestore Security Rules and later App Check.
+
+The repository contains `firestore.rules` and `firebase.json`. The rules must also be published in Firebase Console (Firestore > Rules) before the app can create profiles.
+
+## Firestore schema
 
 ```text
+usernames/{normalizedUsername}
+  uid
+  username
+
 users/{uid}
+  uid
+  email
   username
   displayName
-  photoUrl
   heightCm
   startWeightKg
   currentWeightKg
@@ -28,35 +44,18 @@ users/{uid}
   programCompleted
 
 users/{uid}/weights/{entryId}
-  date
+  userId
   weightKg
+  createdAt
 
 meals/{mealId}
-  userId
-  mealType
-  imageUrl
-  aiLabel
-  aiCalories
-  confirmedCalories
-  createdAt
-
 friendships/{friendshipId}
-  userA
-  userB
-  status
-  createdAt
-
 dailyStats/{uid_yyyyMMdd}
-  userId
-  date
-  calorieTarget
-  calorieTotal
-  adherenceScore
 ```
 
 ## Leaderboard rule
 
-The app should not reward eating the fewest calories. Ranking is based on closeness to the user's own daily calorie target and completion consistency.
+The app should not reward eating the fewest calories. Ranking will be based on closeness to the user's own daily calorie target and completion consistency.
 
 Draft score rule:
 
@@ -67,14 +66,8 @@ Draft score rule:
 
 This scoring rule is a game mechanic, not medical advice, and will be reviewed before production.
 
-## Firebase setup (next milestone)
-
-1. Create Firebase project.
-2. Add Android app with package `com.ridvanozdemir.socialdiet`.
-3. Add `google-services.json` to `app/`.
-4. Enable Authentication, Firestore and Storage.
-5. Add Google Services Gradle plugin and security rules.
-
 ## Build
 
-The project targets API 37, uses Kotlin + Jetpack Compose, CameraX and Firebase dependencies.
+The project targets Android 16 / API 36, uses Kotlin + Jetpack Compose, CameraX and Firebase.
+
+GitHub Actions builds a debug APK on every push to `main` and uploads it as the `socialdiet-debug-apk` artifact.

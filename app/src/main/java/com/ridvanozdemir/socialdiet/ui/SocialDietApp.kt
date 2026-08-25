@@ -6,6 +6,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,6 +17,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.ridvanozdemir.socialdiet.data.FirebaseRepository
 import com.ridvanozdemir.socialdiet.ui.screens.AuthScreen
 import com.ridvanozdemir.socialdiet.ui.screens.FriendsScreen
 import com.ridvanozdemir.socialdiet.ui.screens.HomeScreen
@@ -27,12 +29,29 @@ private data class Tab(val route: String, val label: String)
 
 @Composable
 fun SocialDietApp() {
-    var authenticated by remember { mutableStateOf(false) }
-    if (!authenticated) {
-        AuthScreen(onContinue = { authenticated = true })
+    val repository = remember { FirebaseRepository() }
+    var userId by remember { mutableStateOf(repository.currentUserId) }
+
+    DisposableEffect(repository) {
+        val listener = repository.addAuthStateListener { user ->
+            userId = user?.uid
+        }
+        onDispose {
+            repository.removeAuthStateListener(listener)
+        }
+    }
+
+    val activeUserId = userId
+    if (activeUserId == null) {
+        AuthScreen(repository = repository)
         return
     }
 
+    MainApp(repository = repository, userId = activeUserId)
+}
+
+@Composable
+private fun MainApp(repository: FirebaseRepository, userId: String) {
     val navController = rememberNavController()
     val tabs = listOf(
         Tab("home", "Bugün"),
@@ -73,7 +92,13 @@ fun SocialDietApp() {
             composable("friends") { FriendsScreen() }
             composable("meal") { MealScreen() }
             composable("leaderboard") { LeaderboardScreen() }
-            composable("profile") { ProfileScreen() }
+            composable("profile") {
+                ProfileScreen(
+                    repository = repository,
+                    userId = userId,
+                    onSignOut = repository::signOut
+                )
+            }
         }
     }
 }
