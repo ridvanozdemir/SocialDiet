@@ -84,7 +84,7 @@ fun AuthScreen(repository: FirebaseRepository) {
             value = password,
             onValueChange = { password = it },
             label = { Text("Şifre") },
-            supportingText = if (registerMode) ({ { Text("En az 6 karakter") } }) else null,
+            supportingText = if (registerMode) ({ Text("En az 6 karakter") }) else null,
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
