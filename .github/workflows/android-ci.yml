@@ -25,6 +25,26 @@ jobs:
       - name: Install Android SDK 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
+      - name: Install stable SocialDiet debug keystore
+        env:
+          SOCIALDIET_DEBUG_KEYSTORE_BASE64: ${{ secrets.SOCIALDIET_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$SOCIALDIET_DEBUG_KEYSTORE_BASE64"
+          mkdir -p "$HOME/.android"
+          printf '%s' "$SOCIALDIET_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+
+          EXPECTED_SHA1="4F:33:17:31:50:68:E9:DA:7F:67:96:73:F9:B2:90:60:6D:25:8D:E8"
+          ACTUAL_SHA1="$(keytool -list -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -alias androiddebugkey \
+            -storepass android \
+            -keypass android \
+            | sed -n 's/.*SHA1: //p' | head -n 1)"
+
+          echo "Debug signing SHA-1: $ACTUAL_SHA1"
+          test "$ACTUAL_SHA1" = "$EXPECTED_SHA1"
+
       - name: Fetch on-device nutrition model
         run: |
           mkdir -p app/src/main/assets
@@ -40,6 +60,19 @@ jobs:
 
       - name: Build debug APK
         run: gradle :app:assembleDebug
+
+      - name: Verify APK signing certificate
+        run: |
+          EXPECTED_SHA1="4F:33:17:31:50:68:E9:DA:7F:67:96:73:F9:B2:90:60:6D:25:8D:E8"
+          ACTUAL_SHA1="$($ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs \
+            app/build/outputs/apk/debug/app-debug.apk \
+            | sed -n 's/Signer #1 certificate SHA-1 digest: //p' \
+            | tr '[:lower:]' '[:upper:]' \
+            | sed 's/../&:/g; s/:$//' \
+            | head -n 1)"
+
+          echo "APK signing SHA-1: $ACTUAL_SHA1"
+          test "$ACTUAL_SHA1" = "$EXPECTED_SHA1"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
