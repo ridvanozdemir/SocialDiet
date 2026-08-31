@@ -16,6 +16,9 @@ android {
         versionName = "0.3.1"
     }
 
+    val releaseKeystorePath = System.getenv("SOCIALDIET_UPLOAD_KEYSTORE_PATH")
+    val releaseKeystorePassword = System.getenv("SOCIALDIET_UPLOAD_PASSWORD")
+
     signingConfigs {
         getByName("debug") {
             storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
@@ -23,11 +26,27 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+
+        if (!releaseKeystorePath.isNullOrBlank() && !releaseKeystorePassword.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(releaseKeystorePath)
+                storePassword = releaseKeystorePassword
+                keyAlias = "socialdiet-upload"
+                keyPassword = releaseKeystorePassword
+            }
+        }
     }
 
     buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("debug")
+        }
+
+        getByName("release") {
+            if (signingConfigs.names.contains("release")) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            isMinifyEnabled = false
         }
     }
 
