@@ -1,53 +1,134 @@
 package com.ridvanozdemir.socialdiet.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseUser
 import com.ridvanozdemir.socialdiet.data.FirebaseRepository
+import com.ridvanozdemir.socialdiet.data.model.UserProfile
 import com.ridvanozdemir.socialdiet.ui.screens.AuthScreen
+import com.ridvanozdemir.socialdiet.ui.screens.EmailVerificationScreen
 import com.ridvanozdemir.socialdiet.ui.screens.FriendsScreen
 import com.ridvanozdemir.socialdiet.ui.screens.HomeScreen
 import com.ridvanozdemir.socialdiet.ui.screens.LeaderboardScreen
 import com.ridvanozdemir.socialdiet.ui.screens.MealScreen
 import com.ridvanozdemir.socialdiet.ui.screens.ProfileScreen
+import com.ridvanozdemir.socialdiet.ui.screens.ProfileSetupScreen
 
 private data class Tab(val route: String, val label: String)
 
 @Composable
 fun SocialDietApp() {
     val repository = remember { FirebaseRepository() }
-    var userId by remember { mutableStateOf(repository.currentUserId) }
+    var currentUser by remember { mutableStateOf<FirebaseUser?>(null) }
+    var authResolved by remember { mutableStateOf(false) }
 
     DisposableEffect(repository) {
         val listener = repository.addAuthStateListener { user ->
-            userId = user?.uid
+            currentUser = user
+            authResolved = true
         }
-        onDispose {
-            repository.removeAuthStateListener(listener)
-        }
+        onDispose { repository.removeAuthStateListener(listener) }
     }
 
-    val activeUserId = userId
-    if (activeUserId == null) {
+    if (!authResolved) {
+        LoadingScreen()
+        return
+    }
+
+    val user = currentUser
+    if (user == null) {
         AuthScreen(repository = repository)
         return
     }
 
-    MainApp(repository = repository, userId = activeUserId)
+    if (!user.isEmailVerified) {
+        EmailVerificationScreen(
+            repository = repository,
+            user = user,
+            onUserRefreshed = { refreshed -> currentUser = refreshed }
+        )
+        return
+    }
+
+    ProfileGate(repository = repository, user = user)
+}
+
+@Composable
+private fun ProfileGate(repository: FirebaseRepository, user: FirebaseUser) {
+    var profile by remember(user.uid) { mutableStateOf<UserProfile?>(null) }
+    var loaded by remember(user.uid) { mutableStateOf(false) }
+    var error by remember(user.uid) { mutableStateOf<String?>(null) }
+
+    DisposableEffect(user.uid) {
+        val registration = repository.observeProfile(
+            userId = user.uid,
+            onProfile = {
+                profile = it
+                loaded = true
+            },
+            onError = {
+                error = it.message ?: "Profil yüklenemedi."
+                loaded = true
+            }
+        )
+        onDispose { registration.remove() }
+    }
+
+    if (!loaded) {
+        LoadingScreen()
+        return
+    }
+
+    error?.let {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(it)
+        }
+        return
+    }
+
+    val activeProfile = profile
+    if (activeProfile == null) {
+        ProfileSetupScreen(repository = repository)
+        return
+    }
+
+    LaunchedEffect(
+        activeProfile.uid,
+        activeProfile.username,
+        activeProfile.currentWeightKg,
+        activeProfile.programCompleted
+    ) {
+        repository.ensurePublicProfile(activeProfile)
+    }
+
+    MainApp(repository = repository, userId = user.uid)
+}
+
+@Composable
+private fun LoadingScreen() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
 }
 
 @Composable
@@ -88,15 +169,18 @@ private fun MainApp(repository: FirebaseRepository, userId: String) {
             startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") { HomeScreen() }
-            composable("friends") { FriendsScreen() }
-            composable("meal") {
-                MealScreen(
-                    repository = repository,
-                    userId = userId
-                )
+            composable("home") {
+                HomeScreen(repository = repository, userId = userId)
             }
-            composable("leaderboard") { LeaderboardScreen() }
+            composable("friends") {
+                FriendsScreen(repository = repository, userId = userId)
+            }
+            composable("meal") {
+                MealScreen(repository = repository, userId = userId)
+            }
+            composable("leaderboard") {
+                LeaderboardScreen(repository = repository, userId = userId)
+            }
             composable("profile") {
                 ProfileScreen(
                     repository = repository,
