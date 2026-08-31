@@ -118,8 +118,7 @@ class FirebaseRepository(
     }
 
     fun signInWithGoogleIdToken(idToken: String, onResult: (Result<Unit>) -> Unit) {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential)
+        auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
             .addOnSuccessListener { onResult(Result.success(Unit)) }
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
@@ -149,11 +148,9 @@ class FirebaseRepository(
                     dailyCalorieTarget = input.dailyCalorieTarget
                 ) { profileResult ->
                     profileResult.onSuccess {
-                        user.sendEmailVerification()
-                            .addOnCompleteListener {
-                                // Verification can also be resent from the verification screen.
-                                onResult(Result.success(Unit))
-                            }
+                        user.sendEmailVerification().addOnCompleteListener {
+                            onResult(Result.success(Unit))
+                        }
                     }.onFailure { error ->
                         user.delete().addOnCompleteListener {
                             auth.signOut()
@@ -216,28 +213,6 @@ class FirebaseRepository(
                 )
             }
 
-            val profile = hashMapOf<String, Any?>(
-                "uid" to user.uid,
-                "email" to user.email,
-                "username" to normalizedUsername,
-                "displayName" to displayName.trim(),
-                "heightCm" to heightCm,
-                "startWeightKg" to startWeightKg,
-                "currentWeightKg" to startWeightKg,
-                "targetWeightKg" to targetWeightKg,
-                "dailyCalorieTarget" to dailyCalorieTarget,
-                "programCompleted" to completed,
-                "createdAt" to FieldValue.serverTimestamp()
-            )
-            val publicProfile = hashMapOf<String, Any>(
-                "uid" to user.uid,
-                "username" to normalizedUsername,
-                "displayName" to displayName.trim(),
-                "progressPercent" to 0,
-                "programCompleted" to completed,
-                "updatedAt" to FieldValue.serverTimestamp()
-            )
-
             transaction.set(
                 usernameRef,
                 mapOf(
@@ -246,8 +221,33 @@ class FirebaseRepository(
                     "createdAt" to FieldValue.serverTimestamp()
                 )
             )
-            transaction.set(userRef, profile)
-            transaction.set(publicRef, publicProfile)
+            transaction.set(
+                userRef,
+                mapOf(
+                    "uid" to user.uid,
+                    "email" to user.email,
+                    "username" to normalizedUsername,
+                    "displayName" to displayName.trim(),
+                    "heightCm" to heightCm,
+                    "startWeightKg" to startWeightKg,
+                    "currentWeightKg" to startWeightKg,
+                    "targetWeightKg" to targetWeightKg,
+                    "dailyCalorieTarget" to dailyCalorieTarget,
+                    "programCompleted" to completed,
+                    "createdAt" to FieldValue.serverTimestamp()
+                )
+            )
+            transaction.set(
+                publicRef,
+                mapOf(
+                    "uid" to user.uid,
+                    "username" to normalizedUsername,
+                    "displayName" to displayName.trim(),
+                    "progressPercent" to 0,
+                    "programCompleted" to completed,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            )
         }.addOnSuccessListener {
             onResult(Result.success(Unit))
         }.addOnFailureListener { error ->
@@ -264,25 +264,24 @@ class FirebaseRepository(
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     onError(error)
-                    return@addSnapshotListener
+                } else {
+                    onProfile(snapshot?.toObject(UserProfile::class.java))
                 }
-                onProfile(snapshot?.toObject(UserProfile::class.java))
             }
     }
 
     fun ensurePublicProfile(profile: UserProfile) {
         if (profile.uid.isBlank() || profile.username.isBlank()) return
-        val progress = progressPercent(
-            profile.startWeightKg,
-            profile.currentWeightKg,
-            profile.targetWeightKg
-        )
         firestore.collection("publicProfiles").document(profile.uid).set(
             mapOf(
                 "uid" to profile.uid,
                 "username" to profile.username,
                 "displayName" to profile.displayName,
-                "progressPercent" to progress,
+                "progressPercent" to progressPercent(
+                    profile.startWeightKg,
+                    profile.currentWeightKg,
+                    profile.targetWeightKg
+                ),
                 "programCompleted" to profile.programCompleted,
                 "updatedAt" to FieldValue.serverTimestamp()
             ),
@@ -349,8 +348,7 @@ class FirebaseRepository(
             return
         }
 
-        val credential = EmailAuthProvider.getCredential(email, currentPassword)
-        user.reauthenticate(credential)
+        user.reauthenticate(EmailAuthProvider.getCredential(email, currentPassword))
             .addOnSuccessListener {
                 user.updatePassword(newPassword)
                     .addOnSuccessListener { onResult(Result.success(Unit)) }
@@ -377,7 +375,6 @@ class FirebaseRepository(
                 }
 
                 val completed = isGoalCompleted(start, weightKg, target)
-                val progress = progressPercent(start, weightKg, target)
                 val batch = firestore.batch()
                 batch.update(
                     userRef,
@@ -393,7 +390,7 @@ class FirebaseRepository(
                         "uid" to uid,
                         "username" to (snapshot.getString("username") ?: ""),
                         "displayName" to (snapshot.getString("displayName") ?: ""),
-                        "progressPercent" to progress,
+                        "progressPercent" to progressPercent(start, weightKg, target),
                         "programCompleted" to completed,
                         "updatedAt" to FieldValue.serverTimestamp()
                     ),
@@ -432,37 +429,33 @@ class FirebaseRepository(
             onResult(Result.failure(IllegalStateException("Bu kullanıcı için öğün kaydedilemez.")))
             return
         }
-
         if (confirmedCalories !in 0..10000 || estimatedMassGrams !in 1.0..5000.0) {
             onResult(Result.failure(IllegalArgumentException("Öğün değerleri geçersiz.")))
             return
         }
 
         val mealRef = firestore.collection("meals").document()
-        val meal = hashMapOf<String, Any?>(
-            "id" to mealRef.id,
-            "userId" to userId,
-            "mealType" to mealType,
-            "imageUrl" to null,
-            "aiLabel" to aiLabel,
-            "aiConfidence" to aiConfidence,
-            "calorieSource" to calorieSource,
-            "aiCalories" to aiCalories,
-            "confirmedCalories" to confirmedCalories,
-            "estimatedMassGrams" to estimatedMassGrams,
-            "fatGrams" to fatGrams,
-            "carbsGrams" to carbsGrams,
-            "proteinGrams" to proteinGrams,
-            "createdAt" to FieldValue.serverTimestamp()
-        )
-
-        mealRef.set(meal)
-            .addOnSuccessListener {
-                // Keep the social score current without making meal saving depend on this refresh.
-                loadTodaySummary(userId) { }
-                onResult(Result.success(Unit))
-            }
-            .addOnFailureListener { onResult(Result.failure(it)) }
+        mealRef.set(
+            mapOf(
+                "id" to mealRef.id,
+                "userId" to userId,
+                "mealType" to mealType,
+                "imageUrl" to null,
+                "aiLabel" to aiLabel,
+                "aiConfidence" to aiConfidence,
+                "calorieSource" to calorieSource,
+                "aiCalories" to aiCalories,
+                "confirmedCalories" to confirmedCalories,
+                "estimatedMassGrams" to estimatedMassGrams,
+                "fatGrams" to fatGrams,
+                "carbsGrams" to carbsGrams,
+                "proteinGrams" to proteinGrams,
+                "createdAt" to FieldValue.serverTimestamp()
+            )
+        ).addOnSuccessListener {
+            loadTodaySummary(userId) { }
+            onResult(Result.success(Unit))
+        }.addOnFailureListener { onResult(Result.failure(it)) }
     }
 
     fun searchUsers(query: String, onResult: (Result<List<SocialProfile>>) -> Unit) {
@@ -471,6 +464,7 @@ class FirebaseRepository(
             onResult(Result.failure(IllegalArgumentException("Arama için en az 2 karakter gir.")))
             return
         }
+
         firestore.collection("publicProfiles")
             .orderBy("username")
             .startAt(normalized)
@@ -479,10 +473,13 @@ class FirebaseRepository(
             .get()
             .addOnSuccessListener { snapshot ->
                 val currentUid = currentUserId
-                val profiles = snapshot.documents
-                    .mapNotNull(::socialProfileFrom)
-                    .filter { it.uid != currentUid }
-                onResult(Result.success(profiles))
+                onResult(
+                    Result.success(
+                        snapshot.documents
+                            .mapNotNull(::socialProfileFrom)
+                            .filter { it.uid != currentUid }
+                    )
+                )
             }
             .addOnFailureListener { onResult(Result.failure(it)) }
     }
@@ -498,35 +495,35 @@ class FirebaseRepository(
             return
         }
 
-        val targetRef = firestore.collection("publicProfiles").document(targetUid)
-        targetRef.get().addOnSuccessListener { target ->
-            if (!target.exists()) {
-                onResult(Result.failure(IllegalArgumentException("Kullanıcı bulunamadı.")))
-                return@addOnSuccessListener
-            }
-            val id = friendshipId(uid, targetUid)
-            val ref = firestore.collection("friendships").document(id)
-            ref.get().addOnSuccessListener { existing ->
-                if (existing.exists()) {
-                    onResult(Result.failure(IllegalStateException("Bu kullanıcıyla zaten bir arkadaşlık veya bekleyen istek var.")))
+        firestore.collection("publicProfiles").document(targetUid).get()
+            .addOnSuccessListener { target ->
+                if (!target.exists()) {
+                    onResult(Result.failure(IllegalArgumentException("Kullanıcı bulunamadı.")))
                     return@addOnSuccessListener
                 }
-                val pair = listOf(uid, targetUid).sorted()
-                ref.set(
-                    mapOf(
-                        "userA" to pair[0],
-                        "userB" to pair[1],
-                        "requesterId" to uid,
-                        "recipientId" to targetUid,
-                        "status" to "PENDING",
-                        "createdAt" to FieldValue.serverTimestamp(),
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                ).addOnSuccessListener {
-                    onResult(Result.success(Unit))
+
+                val ref = firestore.collection("friendships").document(friendshipId(uid, targetUid))
+                ref.get().addOnSuccessListener { existing ->
+                    if (existing.exists()) {
+                        onResult(Result.failure(IllegalStateException("Bu kullanıcıyla zaten bir arkadaşlık veya bekleyen istek var.")))
+                        return@addOnSuccessListener
+                    }
+                    val pair = listOf(uid, targetUid).sorted()
+                    ref.set(
+                        mapOf(
+                            "userA" to pair[0],
+                            "userB" to pair[1],
+                            "requesterId" to uid,
+                            "recipientId" to targetUid,
+                            "status" to "PENDING",
+                            "createdAt" to FieldValue.serverTimestamp(),
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    ).addOnSuccessListener { onResult(Result.success(Unit)) }
+                        .addOnFailureListener { onResult(Result.failure(it)) }
                 }.addOnFailureListener { onResult(Result.failure(it)) }
-            }.addOnFailureListener { onResult(Result.failure(it)) }
-        }.addOnFailureListener { onResult(Result.failure(it)) }
+            }
+            .addOnFailureListener { onResult(Result.failure(it)) }
     }
 
     fun loadFriendsSnapshot(userId: String, onResult: (Result<FriendsSnapshot>) -> Unit) {
@@ -534,13 +531,17 @@ class FirebaseRepository(
             onResult(Result.failure(IllegalStateException("Arkadaş listesine erişilemiyor.")))
             return
         }
-        val collection = firestore.collection("friendships")
-        collection.whereEqualTo("userA", userId).get()
+
+        val friendships = firestore.collection("friendships")
+        friendships.whereEqualTo("userA", userId).get()
             .addOnSuccessListener { first ->
-                collection.whereEqualTo("userB", userId).get()
+                friendships.whereEqualTo("userB", userId).get()
                     .addOnSuccessListener { second ->
-                        val docs = (first.documents + second.documents).distinctBy { it.id }
-                        buildFriendsSnapshot(userId, docs, onResult)
+                        buildFriendsSnapshot(
+                            userId,
+                            (first.documents + second.documents).distinctBy { it.id },
+                            onResult
+                        )
                     }
                     .addOnFailureListener { onResult(Result.failure(it)) }
             }
@@ -563,40 +564,43 @@ class FirebaseRepository(
         val raw = docs.mapNotNull { doc ->
             val a = doc.getString("userA") ?: return@mapNotNull null
             val b = doc.getString("userB") ?: return@mapNotNull null
-            val other = if (a == userId) b else a
             RawConnection(
                 id = doc.id,
-                otherUid = other,
+                otherUid = if (a == userId) b else a,
                 status = doc.getString("status") ?: "PENDING",
                 requesterId = doc.getString("requesterId") ?: "",
                 recipientId = doc.getString("recipientId") ?: ""
             )
         }
-        val ids = raw.map { it.otherUid }.toSet()
-        fetchSocialProfiles(ids) { profilesResult ->
+
+        fetchSocialProfiles(raw.map { it.otherUid }.toSet()) { profilesResult ->
             profilesResult.onSuccess { profiles ->
                 val byId = profiles.associateBy { it.uid }
-                fun profile(uid: String) = byId[uid] ?: SocialProfile(
+                fun profile(uid: String): SocialProfile = byId[uid] ?: SocialProfile(
                     uid = uid,
                     username = "kullanici",
                     displayName = "SocialDiet kullanıcısı"
                 )
 
-                val incoming = raw
-                    .filter { it.status == "PENDING" && it.recipientId == userId }
-                    .map { FriendRequestItem(it.id, profile(it.otherUid)) }
-                    .sortedBy { it.profile.username }
-                val outgoing = raw
-                    .filter { it.status == "PENDING" && it.requesterId == userId }
-                    .map { FriendRequestItem(it.id, profile(it.otherUid)) }
-                    .sortedBy { it.profile.username }
-                val friends = raw
-                    .filter { it.status == "ACCEPTED" }
-                    .map { profile(it.otherUid) }
-                    .distinctBy { it.uid }
-                    .sortedBy { it.username }
-
-                onResult(Result.success(FriendsSnapshot(incoming, outgoing, friends)))
+                onResult(
+                    Result.success(
+                        FriendsSnapshot(
+                            incoming = raw
+                                .filter { it.status == "PENDING" && it.recipientId == userId }
+                                .map { FriendRequestItem(it.id, profile(it.otherUid)) }
+                                .sortedBy { it.profile.username },
+                            outgoing = raw
+                                .filter { it.status == "PENDING" && it.requesterId == userId }
+                                .map { FriendRequestItem(it.id, profile(it.otherUid)) }
+                                .sortedBy { it.profile.username },
+                            friends = raw
+                                .filter { it.status == "ACCEPTED" }
+                                .map { profile(it.otherUid) }
+                                .distinctBy { it.uid }
+                                .sortedBy { it.username }
+                        )
+                    )
+                )
             }.onFailure { onResult(Result.failure(it)) }
         }
     }
@@ -609,6 +613,7 @@ class FirebaseRepository(
             onResult(Result.success(emptyList()))
             return
         }
+
         val remaining = AtomicInteger(ids.size)
         val profiles = mutableListOf<SocialProfile>()
         var firstError: Throwable? = null
@@ -622,6 +627,7 @@ class FirebaseRepository(
                     } else if (firstError == null) {
                         firstError = task.exception
                     }
+
                     if (remaining.decrementAndGet() == 0) {
                         val error = firstError
                         if (error != null) onResult(Result.failure(error))
@@ -690,6 +696,7 @@ class FirebaseRepository(
             onResult(Result.failure(IllegalStateException("Günlük verilere erişilemiyor.")))
             return
         }
+
         val today = LocalDate.now()
         firestore.collection("users").document(userId).get()
             .addOnSuccessListener { profile ->
@@ -700,10 +707,15 @@ class FirebaseRepository(
                         var lunch = 0
                         var dinner = 0
                         var snack = 0
+
                         meals.documents.forEach { meal ->
-                            val mealDate = meal.getTimestamp("createdAt")?.toDate()?.toInstant()
-                                ?.atZone(ZoneId.systemDefault())?.toLocalDate()
+                            val mealDate = meal.getTimestamp("createdAt")
+                                ?.toDate()
+                                ?.toInstant()
+                                ?.atZone(ZoneId.systemDefault())
+                                ?.toLocalDate()
                             if (mealDate != today) return@forEach
+
                             val calories = meal.getLong("confirmedCalories")?.toInt() ?: 0
                             when (meal.getString("mealType")) {
                                 "BREAKFAST" -> breakfast += calories
@@ -712,13 +724,13 @@ class FirebaseRepository(
                                 else -> snack += calories
                             }
                         }
+
                         val total = breakfast + lunch + dinner + snack
-                        val score = adherenceScore(total, target)
                         val summary = TodaySummary(
                             dateIso = today.toString(),
                             calorieTarget = target,
                             calorieTotal = total,
-                            adherenceScore = score,
+                            adherenceScore = adherenceScore(total, target),
                             breakfastCalories = breakfast,
                             lunchCalories = lunch,
                             dinnerCalories = dinner,
@@ -769,15 +781,19 @@ class FirebaseRepository(
 
     fun loadLeaderboard(userId: String, onResult: (Result<List<LeaderboardEntry>>) -> Unit) {
         loadTodaySummary(userId) { todayResult ->
-            todayResult.onFailure {
-                onResult(Result.failure(it))
+            val todayError = todayResult.exceptionOrNull()
+            if (todayError != null) {
+                onResult(Result.failure(todayError))
                 return@loadTodaySummary
             }
+
             loadFriendsSnapshot(userId) { friendsResult ->
-                friendsResult.onFailure {
-                    onResult(Result.failure(it))
+                val friendsError = friendsResult.exceptionOrNull()
+                if (friendsError != null) {
+                    onResult(Result.failure(friendsError))
                     return@loadFriendsSnapshot
                 }
+
                 val friends = friendsResult.getOrThrow().friends
                 firestore.collection("publicProfiles").document(userId).get()
                     .addOnSuccessListener { selfDoc ->
@@ -786,8 +802,11 @@ class FirebaseRepository(
                             username = "sen",
                             displayName = "Sen"
                         )
-                        val participants = (listOf(self) + friends).distinctBy { it.uid }
-                        loadLeaderboardScores(participants, userId, onResult)
+                        loadLeaderboardScores(
+                            (listOf(self) + friends).distinctBy { it.uid },
+                            userId,
+                            onResult
+                        )
                     }
                     .addOnFailureListener { onResult(Result.failure(it)) }
             }
@@ -803,6 +822,7 @@ class FirebaseRepository(
             onResult(Result.success(emptyList()))
             return
         }
+
         val dates = (0..6).map { LocalDate.now().minusDays(it.toLong()) }
         val scores = profiles.associate { it.uid to IntArray(dates.size) }.toMutableMap()
         val remaining = AtomicInteger(profiles.size * dates.size)
@@ -810,13 +830,14 @@ class FirebaseRepository(
 
         profiles.forEach { profile ->
             dates.forEachIndexed { index, date ->
-                val key = date.format(DateTimeFormatter.BASIC_ISO_DATE)
-                val id = "${profile.uid}_$key"
+                val id = "${profile.uid}_${date.format(DateTimeFormatter.BASIC_ISO_DATE)}"
                 firestore.collection("publicDailyStats").document(id).get()
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            val value = task.result?.getLong("adherenceScore")?.toInt() ?: 0
-                            scores[profile.uid]?.set(index, value)
+                            scores[profile.uid]?.set(
+                                index,
+                                task.result?.getLong("adherenceScore")?.toInt() ?: 0
+                            )
                         } else if (firstError == null) {
                             firstError = task.exception
                         }
@@ -826,22 +847,25 @@ class FirebaseRepository(
                             if (error != null) {
                                 onResult(Result.failure(error))
                             } else {
-                                val entries = profiles.map { p ->
-                                    val values = scores[p.uid] ?: IntArray(7)
-                                    LeaderboardEntry(
-                                        uid = p.uid,
-                                        username = p.username,
-                                        displayName = p.displayName,
-                                        dailyScore = values.firstOrNull() ?: 0,
-                                        weeklyScore = values.average().roundToInt(),
-                                        isCurrentUser = p.uid == currentUid
+                                onResult(
+                                    Result.success(
+                                        profiles.map { profileItem ->
+                                            val values = scores[profileItem.uid] ?: IntArray(7)
+                                            LeaderboardEntry(
+                                                uid = profileItem.uid,
+                                                username = profileItem.username,
+                                                displayName = profileItem.displayName,
+                                                dailyScore = values.firstOrNull() ?: 0,
+                                                weeklyScore = values.average().roundToInt(),
+                                                isCurrentUser = profileItem.uid == currentUid
+                                            )
+                                        }.sortedWith(
+                                            compareByDescending<LeaderboardEntry> { it.weeklyScore }
+                                                .thenByDescending { it.dailyScore }
+                                                .thenBy { it.username }
+                                        )
                                     )
-                                }.sortedWith(
-                                    compareByDescending<LeaderboardEntry> { it.weeklyScore }
-                                        .thenByDescending { it.dailyScore }
-                                        .thenBy { it.username }
                                 )
-                                onResult(Result.success(entries))
                             }
                         }
                     }
@@ -861,18 +885,24 @@ class FirebaseRepository(
         }
 
         reauthenticateForSensitiveAction(user, currentPassword, googleIdToken) { authResult ->
-            authResult.onFailure {
-                onResult(Result.failure(it))
+            val authError = authResult.exceptionOrNull()
+            if (authError != null) {
+                onResult(Result.failure(authError))
                 return@reauthenticateForSensitiveAction
             }
+
             firestore.collection("users").document(user.uid).get()
                 .addOnSuccessListener { profile ->
-                    val username = profile.getString("username") ?: ""
-                    deleteUserFirestoreData(user.uid, username) { deletionResult ->
-                        deletionResult.onFailure {
-                            onResult(Result.failure(it))
+                    deleteUserFirestoreData(
+                        uid = user.uid,
+                        username = profile.getString("username") ?: ""
+                    ) { deletionResult ->
+                        val deletionError = deletionResult.exceptionOrNull()
+                        if (deletionError != null) {
+                            onResult(Result.failure(deletionError))
                             return@deleteUserFirestoreData
                         }
+
                         user.delete()
                             .addOnSuccessListener { onResult(Result.success(Unit)) }
                             .addOnFailureListener { onResult(Result.failure(it)) }
@@ -909,7 +939,11 @@ class FirebaseRepository(
                     .addOnSuccessListener { onResult(Result.success(Unit)) }
                     .addOnFailureListener { onResult(Result.failure(it)) }
             }
-            else -> onResult(Result.failure(IllegalStateException("Bu hesap türü için yeniden doğrulama desteklenmiyor.")))
+            else -> onResult(
+                Result.failure(
+                    IllegalStateException("Bu hesap türü için yeniden doğrulama desteklenmiyor.")
+                )
+            )
         }
     }
 
@@ -922,35 +956,46 @@ class FirebaseRepository(
         val userRef = firestore.collection("users").document(uid)
         refs += userRef
         refs += firestore.collection("publicProfiles").document(uid)
-        if (username.isNotBlank()) refs += firestore.collection("usernames").document(normalizeUsername(username))
+        if (username.isNotBlank()) {
+            refs += firestore.collection("usernames").document(normalizeUsername(username))
+        }
 
-        collectQuery(userRef.collection("weights"), refs) {
-            collectQuery(firestore.collection("meals").whereEqualTo("userId", uid), refs) {
-                collectQuery(firestore.collection("friendships").whereEqualTo("userA", uid), refs) {
-                    collectQuery(firestore.collection("friendships").whereEqualTo("userB", uid), refs) {
-                        collectQuery(firestore.collection("dailyStats").whereEqualTo("userId", uid), refs) {
-                            collectQuery(firestore.collection("publicDailyStats").whereEqualTo("userId", uid), refs) {
-                                deleteReferencesInBatches(refs.toList(), 0, onResult)
-                            } onError@{ error -> onResult(Result.failure(error)) }
-                        } onError@{ error -> onResult(Result.failure(error)) }
-                    } onError@{ error -> onResult(Result.failure(error)) }
-                } onError@{ error -> onResult(Result.failure(error)) }
-            } onError@{ error -> onResult(Result.failure(error)) }
-        } onError@{ error -> onResult(Result.failure(error)) }
+        val queries = listOf<Query>(
+            userRef.collection("weights"),
+            firestore.collection("meals").whereEqualTo("userId", uid),
+            firestore.collection("friendships").whereEqualTo("userA", uid),
+            firestore.collection("friendships").whereEqualTo("userB", uid),
+            firestore.collection("dailyStats").whereEqualTo("userId", uid),
+            firestore.collection("publicDailyStats").whereEqualTo("userId", uid)
+        )
+
+        collectQueriesSequentially(queries, 0, refs) { collectionResult ->
+            val error = collectionResult.exceptionOrNull()
+            if (error != null) {
+                onResult(Result.failure(error))
+            } else {
+                deleteReferencesInBatches(refs.toList(), 0, onResult)
+            }
+        }
     }
 
-    private fun collectQuery(
-        query: Query,
+    private fun collectQueriesSequentially(
+        queries: List<Query>,
+        index: Int,
         refs: MutableSet<DocumentReference>,
-        onSuccess: () -> Unit,
-        onError: (Throwable) -> Unit
+        onResult: (Result<Unit>) -> Unit
     ) {
-        query.get()
+        if (index >= queries.size) {
+            onResult(Result.success(Unit))
+            return
+        }
+
+        queries[index].get()
             .addOnSuccessListener { snapshot ->
                 snapshot.documents.forEach { refs += it.reference }
-                onSuccess()
+                collectQueriesSequentially(queries, index + 1, refs, onResult)
             }
-            .addOnFailureListener(onError)
+            .addOnFailureListener { onResult(Result.failure(it)) }
     }
 
     private fun deleteReferencesInBatches(
@@ -962,6 +1007,7 @@ class FirebaseRepository(
             onResult(Result.success(Unit))
             return
         }
+
         val end = (offset + 400).coerceAtMost(refs.size)
         val batch = firestore.batch()
         refs.subList(offset, end).forEach(batch::delete)
@@ -978,10 +1024,9 @@ class FirebaseRepository(
 
     private fun socialProfileFrom(doc: DocumentSnapshot?): SocialProfile? {
         if (doc == null || !doc.exists()) return null
-        val uid = doc.getString("uid") ?: doc.id
         val username = doc.getString("username") ?: return null
         return SocialProfile(
-            uid = uid,
+            uid = doc.getString("uid") ?: doc.id,
             username = username,
             displayName = doc.getString("displayName") ?: username,
             progressPercent = doc.getLong("progressPercent")?.toInt() ?: 0,
