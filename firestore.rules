@@ -9,23 +9,41 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isParticipant(data) {
+      return signedIn()
+        && (data.userA == request.auth.uid || data.userB == request.auth.uid);
+    }
+
     match /usernames/{username} {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.uid == request.auth.uid
         && !exists(/databases/$(database)/documents/usernames/$(username));
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
     match /users/{uid} {
       allow create: if isOwner(uid) && request.resource.data.uid == uid;
       allow read: if isOwner(uid);
-      allow update: if isOwner(uid) && request.resource.data.uid == uid;
+      allow update: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && resource.data.uid == uid;
       allow delete: if isOwner(uid);
 
       match /weights/{entryId} {
         allow read, create, update, delete: if isOwner(uid);
       }
+    }
+
+    // Searchable/social fields only. Email and raw weight values stay in users/{uid}.
+    match /publicProfiles/{uid} {
+      allow read: if signedIn();
+      allow create: if isOwner(uid) && request.resource.data.uid == uid;
+      allow update: if isOwner(uid)
+        && resource.data.uid == uid
+        && request.resource.data.uid == uid;
+      allow delete: if isOwner(uid);
     }
 
     match /meals/{mealId} {
@@ -39,24 +57,44 @@ service cloud.firestore {
 
     match /friendships/{friendshipId} {
       allow create: if signedIn()
+        && request.resource.data.status == 'PENDING'
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.recipientId != request.auth.uid
+        && request.resource.data.userA != request.resource.data.userB
         && (request.resource.data.userA == request.auth.uid
-          || request.resource.data.userB == request.auth.uid);
-      allow read: if signedIn()
-        && (resource.data.userA == request.auth.uid
-          || resource.data.userB == request.auth.uid);
-      allow update: if signedIn()
-        && (resource.data.userA == request.auth.uid
-          || resource.data.userB == request.auth.uid)
+          || request.resource.data.userB == request.auth.uid)
+        && (request.resource.data.recipientId == request.resource.data.userA
+          || request.resource.data.recipientId == request.resource.data.userB);
+
+      allow read: if isParticipant(resource.data);
+
+      // Only the recipient can convert a pending request to an accepted friendship.
+      allow update: if isParticipant(resource.data)
+        && resource.data.status == 'PENDING'
+        && resource.data.recipientId == request.auth.uid
+        && request.resource.data.status == 'ACCEPTED'
         && request.resource.data.userA == resource.data.userA
-        && request.resource.data.userB == resource.data.userB;
-      allow delete: if signedIn()
-        && (resource.data.userA == request.auth.uid
-          || resource.data.userB == request.auth.uid);
+        && request.resource.data.userB == resource.data.userB
+        && request.resource.data.requesterId == resource.data.requesterId
+        && request.resource.data.recipientId == resource.data.recipientId;
+
+      // Recipient can reject, sender can cancel, either participant can remove an accepted friend.
+      allow delete: if isParticipant(resource.data);
     }
 
     match /dailyStats/{statId} {
       allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
       allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Only the adherence score is shared for the social leaderboard.
+    match /publicDailyStats/{statId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if signedIn()
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == request.auth.uid;
