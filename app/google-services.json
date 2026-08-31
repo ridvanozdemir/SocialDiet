@@ -12,7 +12,20 @@
           "package_name": "com.ridvanozdemir.socialdiet"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "718179163890-k3nknsa8vten0dovafie5ctvf4dcph2e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ridvanozdemir.socialdiet",
+            "certificate_hash": "4f3317315068e9da7f679673f9b290606d258de8"
+          }
+        },
+        {
+          "client_id": "718179163890-ucofteauefshj1uo0138ab7f9sqqfsec.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAdqZK0TRdNLT0GMy_FwjKWFVlb6WyqT68"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "718179163890-ucofteauefshj1uo0138ab7f9sqqfsec.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
