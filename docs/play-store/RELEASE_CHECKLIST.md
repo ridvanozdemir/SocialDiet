@@ -1,6 +1,6 @@
 # SocialDiet — Google Play Release Checklist
 
-Son güncelleme: 25 Ağustos 2026
+Son güncelleme: 31 Ağustos 2026
 
 ## Hesap ve Play Console
 
@@ -16,6 +16,10 @@ Son güncelleme: 25 Ağustos 2026
 - [x] Paket adı: `com.ridvanozdemir.socialdiet`
 - [x] `targetSdk = 36`
 - [x] `compileSdk = 36`
+- [ ] Google Authentication sağlayıcısı Firebase Console'da etkinleştirildi
+- [ ] Android signing SHA-1 Firebase projesine eklendi
+- [ ] OAuth client içeren güncel `google-services.json` projeye eklendi
+- [ ] Güncel `firestore.rules` Firebase Console'a yayınlandı
 - [ ] Kararlı release upload key oluşturuldu ve güvenli yedeklendi
 - [ ] Keystore ve parolalar GitHub Secrets içine eklendi; repoya commit edilmedi
 - [ ] GitHub Actions `bundleRelease` ile imzalı `.aab` üretiyor
@@ -25,18 +29,25 @@ Son güncelleme: 25 Ağustos 2026
 ## Ürün işlevleri
 
 - [x] Kayıt / giriş
+- [x] Şifremi unuttum / şifre sıfırlama e-postası
+- [x] E-posta doğrulama ve yeniden gönderme akışı
+- [x] Google ile giriş uygulama kodu / Credential Manager akışı
+- [x] Şifre değiştirme ve yeniden doğrulama
 - [x] Profil ve kilo hedefi
 - [x] Fotoğraf seçme / kameradan çekme
 - [x] Cihaz üzerinde AI besin tahmini
 - [x] Kullanıcının AI tahminini düzeltmesi
 - [x] Öğün kaydı
-- [ ] Arkadaş arama / istek / kabul / silme
-- [ ] Günlük kalori toplamı
-- [ ] Arkadaşlara izin verilen ilerleme görünümü
-- [ ] Günlük / haftalık hedefe uyum sıralaması
+- [x] Gerçek günlük kalori toplamı ve öğün kırılımı
+- [x] Kullanıcı adıyla kullanıcı arama
+- [x] Arkadaşlık isteği gönderme
+- [x] Arkadaşlık isteği kabul / reddet
+- [x] Arkadaş silme
+- [x] Arkadaşlara izin verilen ilerleme profilini görüntüleme
+- [x] Günlük / haftalık hedefe uyum sıralaması
+- [x] Uygulama içi hesap silme
+- [x] Kullanıcıya ait bilinen Firestore verilerinin hesap silmeyle temizlenmesi
 - [ ] Kullanıcı engelleme ve gerekiyorsa bildirme akışı
-- [ ] Uygulama içi hesap silme
-- [ ] Kullanıcıya ait Firestore verilerinin hesap silmeyle temizlenmesi
 
 ## Politika ve gizlilik
 
@@ -73,14 +84,21 @@ Son güncelleme: 25 Ağustos 2026
 
 ## Test ve yayın
 
+- [ ] Debug/CI derlemesi temiz
 - [ ] Internal Testing AAB yüklendi ve kendi cihazında Play üzerinden kuruldu
 - [ ] Crash / temel akış testi yapıldı
+- [ ] Kayıt > e-posta doğrulama > profil > öğün > Bugün temel akışı test edildi
+- [ ] İki ayrı hesapla arkadaşlık isteği / kabul / silme test edildi
+- [ ] Lig skorunun iki ayrı hesapla doğruluğu test edildi
+- [ ] Şifremi unuttum ve şifre değiştirme gerçek e-posta hesabıyla test edildi
+- [ ] Hesap silme sonrası Auth + Firestore veri temizliği doğrulandı
+- [ ] Google ile giriş release signing yapılandırmasıyla test edildi
 - [ ] Closed Testing tester listesi hazırlandı
-- [ ] En az 12 tester teste katıldı ve 14 gün kesintisiz opted-in kaldı
+- [ ] Kapalı test için geçerli Google Play tester/opt-in gereksinimleri yayın öncesi güncel dokümantasyondan doğrulandı
 - [ ] Tester geri bildirimleri kaydedildi ve anlamlı düzeltmeler yapıldı
 - [ ] Production access başvurusu tamamlandı
 - [ ] Production release review'a gönderildi
 
 ## Yayından hemen önce son kontrol
 
-Store listing yalnızca gerçekten çalışan özellikleri anlatmalı. Üretim tarihinde tamamlanmamış sosyal özellikler açıklamadan ve ekran görüntülerinden çıkarılmalıdır.
+Store listing yalnızca gerçekten çalışan ve son build üzerinde test edilmiş özellikleri anlatmalı. Firebase Console yapılandırması, Firestore Rules yayını ve gerçek cihaz testleri tamamlanmadan sosyal/Google giriş özellikleri üretim hazır kabul edilmemelidir.
