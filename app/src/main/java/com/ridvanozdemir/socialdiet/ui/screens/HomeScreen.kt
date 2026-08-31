@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.ridvanozdemir.socialdiet.data.FirebaseRepository
 import com.ridvanozdemir.socialdiet.data.TodaySummary
 
@@ -75,7 +76,7 @@ fun HomeScreen(repository: FirebaseRepository, userId: String) {
             enabled = !loading,
             onClick = ::refresh
         ) {
-            if (loading) CircularProgressIndicator(strokeWidth = 2f)
+            if (loading) CircularProgressIndicator(strokeWidth = 2.dp)
             else Text("Yenile")
         }
     }
