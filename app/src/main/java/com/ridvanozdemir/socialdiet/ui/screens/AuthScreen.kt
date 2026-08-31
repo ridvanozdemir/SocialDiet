@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -18,17 +19,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.ridvanozdemir.socialdiet.auth.GoogleCredentialHelper
 import com.ridvanozdemir.socialdiet.data.FirebaseRepository
 import com.ridvanozdemir.socialdiet.data.RegistrationInput
+import kotlinx.coroutines.launch
 
 @Composable
 fun AuthScreen(repository: FirebaseRepository) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var registerMode by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -39,9 +46,15 @@ fun AuthScreen(repository: FirebaseRepository) {
     var targetWeight by remember { mutableStateOf("") }
     var calorieTarget by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var messageIsError by remember { mutableStateOf(false) }
 
     fun parseDouble(value: String): Double? = value.trim().replace(',', '.').toDoubleOrNull()
+
+    fun showError(text: String) {
+        message = text
+        messageIsError = true
+    }
 
     Column(
         modifier = Modifier
@@ -125,10 +138,10 @@ fun AuthScreen(repository: FirebaseRepository) {
             )
         }
 
-        errorMessage?.let {
+        message?.let {
             Text(
                 text = it,
-                color = MaterialTheme.colorScheme.error,
+                color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
             )
         }
@@ -136,9 +149,9 @@ fun AuthScreen(repository: FirebaseRepository) {
         Button(
             enabled = !loading,
             onClick = {
-                errorMessage = null
+                message = null
                 if (email.isBlank() || password.length < 6) {
-                    errorMessage = "Geçerli bir e-posta ve en az 6 karakterlik şifre gir."
+                    showError("Geçerli bir e-posta ve en az 6 karakterlik şifre gir.")
                     return@Button
                 }
 
@@ -157,7 +170,7 @@ fun AuthScreen(repository: FirebaseRepository) {
                         parsedCalorieTarget == null || parsedCalorieTarget <= 0
                     ) {
                         loading = false
-                        errorMessage = "Profil bilgilerini eksiksiz ve geçerli değerlerle doldur."
+                        showError("Profil bilgilerini eksiksiz ve geçerli değerlerle doldur.")
                         return@Button
                     }
 
@@ -174,29 +187,76 @@ fun AuthScreen(repository: FirebaseRepository) {
                         )
                     ) { result ->
                         loading = false
-                        result.exceptionOrNull()?.let { errorMessage = it.message ?: "Kayıt başarısız." }
+                        result.exceptionOrNull()?.let { showError(it.message ?: "Kayıt başarısız.") }
                     }
                 } else {
                     repository.signIn(email, password) { result ->
                         loading = false
-                        result.exceptionOrNull()?.let { errorMessage = it.message ?: "Giriş başarısız." }
+                        result.exceptionOrNull()?.let { showError(it.message ?: "Giriş başarısız.") }
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
         ) {
-            if (loading) {
-                CircularProgressIndicator(strokeWidth = 2.dp)
-            } else {
-                Text(if (registerMode) "Hesap Oluştur" else "Giriş Yap")
+            if (loading) CircularProgressIndicator(strokeWidth = 2.dp)
+            else Text(if (registerMode) "Hesap Oluştur" else "Giriş Yap")
+        }
+
+        if (!registerMode) {
+            TextButton(
+                enabled = !loading,
+                onClick = {
+                    message = null
+                    if (email.isBlank()) {
+                        showError("Şifre sıfırlama bağlantısı için e-posta adresini gir.")
+                    } else {
+                        loading = true
+                        repository.sendPasswordReset(email) { result ->
+                            loading = false
+                            if (result.isSuccess) {
+                                message = "Şifre sıfırlama bağlantısı e-posta adresine gönderildi."
+                                messageIsError = false
+                            } else {
+                                showError(result.exceptionOrNull()?.message ?: "Şifre sıfırlama e-postası gönderilemedi.")
+                            }
+                        }
+                    }
+                }
+            ) {
+                Text("Şifremi unuttum")
             }
+        }
+
+        Text("veya", modifier = Modifier.padding(vertical = 8.dp))
+
+        OutlinedButton(
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                message = null
+                loading = true
+                scope.launch {
+                    val tokenResult = runCatching { GoogleCredentialHelper.requestIdToken(context) }
+                    tokenResult.onSuccess { token ->
+                        repository.signInWithGoogleIdToken(token) { result ->
+                            loading = false
+                            result.exceptionOrNull()?.let { showError(it.message ?: "Google ile giriş başarısız.") }
+                        }
+                    }.onFailure { error ->
+                        loading = false
+                        showError(error.message ?: "Google hesabı seçilemedi.")
+                    }
+                }
+            }
+        ) {
+            Text("Google ile devam et")
         }
 
         TextButton(
             enabled = !loading,
             onClick = {
                 registerMode = !registerMode
-                errorMessage = null
+                message = null
             }
         ) {
             Text(if (registerMode) "Zaten hesabın var mı? Giriş yap" else "Hesabın yok mu? Kayıt ol")
