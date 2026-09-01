@@ -76,5 +76,5 @@ jobs:
       - name: Upload release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: socialdiet-release-aab-v6
+          name: socialdiet-release-aab-v7
           path: app/build/outputs/bundle/release/app-release.aab
