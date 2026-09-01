@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.MutableContextWrapper
 import android.util.Base64
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -65,10 +66,12 @@ object GoogleCredentialHelper {
                 requestGoogleCredential(authorizedAccountsOnly = false)
             }
         } catch (error: GetCredentialCancellationException) {
-            val detail = error.message?.takeIf { it.isNotBlank() }
+            // Some Google Play Services / Credential Manager sessions can become stale and
+            // surface as a cancellation even after the user selects an account. Clear the
+            // provider state so the next tap can start from a clean session without rebooting.
+            runCatching { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
             throw IllegalStateException(
-                detail?.let { "Google ile giriş tamamlanamadı: $it" }
-                    ?: "Google ile giriş tamamlanamadı. Lütfen tekrar deneyin.",
+                "Google oturum durumu yenilendi. Lütfen Google ile devam et düğmesine tekrar dokunun.",
                 error
             )
         } catch (error: GetCredentialInterruptedException) {
@@ -90,6 +93,12 @@ object GoogleCredentialHelper {
         }
 
         return GoogleIdTokenCredential.createFrom(credential.data).idToken
+    }
+
+    suspend fun clearCredentialState(context: Context) {
+        val managerContext = context.findActivity() ?: context
+        CredentialManager.create(managerContext)
+            .clearCredentialState(ClearCredentialStateRequest())
     }
 
     private fun generateSecureRandomNonce(byteLength: Int = 32): String {
