@@ -1,0 +1,53 @@
+name: Build v10 debug once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-v10-debug-once.yml'
+
+jobs:
+  build-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Fetch on-device nutrition model
+        run: |
+          mkdir -p app/src/main/assets
+          curl --fail --location --retry 3 \
+            --output app/src/main/assets/image2nutrition.tflite \
+            "https://raw.githubusercontent.com/dant4ick/plate_track_ai/54ceb65915dc708f452b9f6830f1eb9ac27d17a5/assets/ml/image2nutrition.tflite"
+          test "$(stat -c%s app/src/main/assets/image2nutrition.tflite)" -eq 26371792
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
+
+      - name: Verify APK
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          apksigner verify --verbose "$APK"
+
+      - name: Upload v10 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: socialdiet-v10-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
