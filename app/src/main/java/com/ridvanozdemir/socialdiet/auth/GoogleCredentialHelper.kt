@@ -3,12 +3,14 @@ package com.ridvanozdemir.socialdiet.auth
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.MutableContextWrapper
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 
 object GoogleCredentialHelper {
@@ -30,24 +32,35 @@ object GoogleCredentialHelper {
         val activity = context.findActivity()
             ?: error("Google ile giriş ekranı açılamadı. Uygulamayı kapatıp yeniden açın.")
 
-        // This is an explicit "Continue with Google" button, so use the
-        // dedicated button flow rather than the Credential Manager bottom-sheet
-        // account discovery flow. The button flow can also surface accounts that
-        // need re-authentication or let the user add a Google account.
-        val signInWithGoogleOption = GetSignInWithGoogleOption.Builder(serverClientId)
-            .build()
+        val credentialManager = CredentialManager.create(activity)
+        val mutableContext = MutableContextWrapper(activity)
 
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(signInWithGoogleOption)
-            .build()
+        suspend fun requestGoogleCredential(authorizedAccountsOnly: Boolean): GetCredentialResponse {
+            val googleIdOption = GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(authorizedAccountsOnly)
+                .setServerClientId(serverClientId)
+                .build()
 
-        val result = try {
-            CredentialManager.create(activity).getCredential(
-                context = activity,
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
+            return credentialManager.getCredential(
+                context = mutableContext,
                 request = request
             )
+        }
+
+        val result = try {
+            try {
+                // Prefer an account that has already authorized SocialDiet.
+                requestGoogleCredential(authorizedAccountsOnly = true)
+            } catch (_: NoCredentialException) {
+                // First-time sign-in: show all Google accounts on the device.
+                requestGoogleCredential(authorizedAccountsOnly = false)
+            }
         } catch (error: GetCredentialCancellationException) {
-            throw IllegalStateException("Google ile giriş iptal edildi.", error)
+            throw IllegalStateException("Google hesabı seçimi iptal edildi.", error)
         } catch (error: NoCredentialException) {
             throw IllegalStateException(
                 "Kullanılabilir Google hesabı bulunamadı. Telefonda bir Google hesabının açık olduğundan ve Google Play Hizmetleri'nin güncel olduğundan emin olun.",
