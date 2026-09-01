@@ -20,7 +20,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
-          # Read the newest v10 debug build triggered on main.
+          # Read the newest v10 debug build triggered on main after the verification-path fix.
           JSON="$(gh api "repos/$REPO/actions/workflows/build-v10-debug-once.yml/runs?branch=main&per_page=1")"
           RUN_ID="$(printf '%s' "$JSON" | jq -r '.workflow_runs[0].id')"
           STATUS="$(printf '%s' "$JSON" | jq -r '.workflow_runs[0].status')"
