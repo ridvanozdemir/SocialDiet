@@ -1,3 +1,0 @@
-run_id=33475001075
-artifact_id=9787905887
-artifact_name=socialdiet-release-aab-v6
