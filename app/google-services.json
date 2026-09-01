@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "718179163890-2fucmd7bcq4n8g0cflee85qv7js15coq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ridvanozdemir.socialdiet",
+            "certificate_hash": "6acca7cbd853532609be5ce7f8c5e864c6c89d57"
+          }
+        },
+        {
           "client_id": "718179163890-k3nknsa8vten0dovafie5ctvf4dcph2e.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
