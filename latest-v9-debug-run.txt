@@ -1,0 +1,2 @@
+run_id=33504426472
+artifact_name=socialdiet-v9-debug-apk
