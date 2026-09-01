@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "718179163890-iupom1fu7ld69h850sonlvtu0bjt3c56.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ridvanozdemir.socialdiet",
+            "certificate_hash": "41c313ee99ec64b7cb829c51c704371fbda66de0"
+          }
+        },
+        {
           "client_id": "718179163890-ucofteauefshj1uo0138ab7f9sqqfsec.apps.googleusercontent.com",
           "client_type": 3
         }
