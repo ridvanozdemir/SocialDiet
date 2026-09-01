@@ -8,9 +8,12 @@ import android.util.Base64
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import androidx.credentials.exceptions.GetCredentialInterruptedException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import java.security.SecureRandom
 
@@ -36,23 +39,43 @@ object GoogleCredentialHelper {
         val credentialManager = CredentialManager.create(activity)
         val mutableContext = MutableContextWrapper(activity)
 
-        // The user explicitly tapped the "Google ile devam et" button, so use
-        // Credential Manager's dedicated Sign in with Google button flow.
-        val googleOption = GetSignInWithGoogleOption.Builder(serverClientId)
-            .setNonce(generateSecureRandomNonce())
-            .build()
+        suspend fun requestGoogleCredential(authorizedAccountsOnly: Boolean): GetCredentialResponse {
+            val googleIdOption = GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(authorizedAccountsOnly)
+                .setServerClientId(serverClientId)
+                .setNonce(generateSecureRandomNonce())
+                .build()
 
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(googleOption)
-            .build()
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
 
-        val result = try {
-            credentialManager.getCredential(
+            return credentialManager.getCredential(
                 context = mutableContext,
                 request = request
             )
+        }
+
+        val result = try {
+            try {
+                // Prefer an account that has already authorized SocialDiet.
+                requestGoogleCredential(authorizedAccountsOnly = true)
+            } catch (_: NoCredentialException) {
+                // First-time sign-in: show every Google account available on the device.
+                requestGoogleCredential(authorizedAccountsOnly = false)
+            }
         } catch (error: GetCredentialCancellationException) {
-            throw IllegalStateException("Google hesabı seçimi iptal edildi.", error)
+            val detail = error.message?.takeIf { it.isNotBlank() }
+            throw IllegalStateException(
+                detail?.let { "Google ile giriş tamamlanamadı: $it" }
+                    ?: "Google ile giriş tamamlanamadı. Lütfen tekrar deneyin.",
+                error
+            )
+        } catch (error: GetCredentialInterruptedException) {
+            throw IllegalStateException(
+                "Google ile giriş geçici olarak kesintiye uğradı. Lütfen tekrar deneyin.",
+                error
+            )
         } catch (error: GetCredentialException) {
             val detail = error.message?.takeIf { it.isNotBlank() } ?: error::class.java.simpleName
             throw IllegalStateException("Google ile giriş açılamadı: $detail", error)
