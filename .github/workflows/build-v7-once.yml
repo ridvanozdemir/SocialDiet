@@ -1,0 +1,82 @@
+name: Build v7 once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-v7-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  bundle-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install SocialDiet upload keystore
+        env:
+          SOCIALDIET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.SOCIALDIET_UPLOAD_KEYSTORE_BASE64 }}
+          SOCIALDIET_UPLOAD_PASSWORD: ${{ secrets.SOCIALDIET_UPLOAD_PASSWORD }}
+        run: |
+          test -n "$SOCIALDIET_UPLOAD_KEYSTORE_BASE64"
+          test -n "$SOCIALDIET_UPLOAD_PASSWORD"
+          mkdir -p "$RUNNER_TEMP/socialdiet-signing"
+          printf '%s' "$SOCIALDIET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/socialdiet-signing/socialdiet-upload-key.jks"
+          chmod 600 "$RUNNER_TEMP/socialdiet-signing/socialdiet-upload-key.jks"
+          EXPECTED_SHA1="81:27:A8:07:D8:12:2D:C9:B5:6F:4B:21:D6:44:F5:A5:2E:94:27:10"
+          ACTUAL_SHA1="$(keytool -list -v -keystore "$RUNNER_TEMP/socialdiet-signing/socialdiet-upload-key.jks" -storepass "$SOCIALDIET_UPLOAD_PASSWORD" -alias socialdiet-upload | sed -n 's/.*SHA1: //p' | head -n 1)"
+          test "$ACTUAL_SHA1" = "$EXPECTED_SHA1"
+          echo "SOCIALDIET_UPLOAD_KEYSTORE_PATH=$RUNNER_TEMP/socialdiet-signing/socialdiet-upload-key.jks" >> "$GITHUB_ENV"
+          echo "SOCIALDIET_UPLOAD_PASSWORD=$SOCIALDIET_UPLOAD_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Fetch on-device nutrition model
+        run: |
+          mkdir -p app/src/main/assets
+          curl --fail --location --retry 3 --output app/src/main/assets/image2nutrition.tflite "https://raw.githubusercontent.com/dant4ick/plate_track_ai/54ceb65915dc708f452b9f6830f1eb9ac27d17a5/assets/ml/image2nutrition.tflite"
+          test "$(stat -c%s app/src/main/assets/image2nutrition.tflite)" -eq 26371792
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+
+      - name: Build signed release AAB
+        run: gradle :app:bundleRelease
+
+      - name: Verify AAB signature
+        run: |
+          AAB="app/build/outputs/bundle/release/app-release.aab"
+          test -f "$AAB"
+          jarsigner -verify "$AAB"
+          EXPECTED_SHA1="81:27:A8:07:D8:12:2D:C9:B5:6F:4B:21:D6:44:F5:A5:2E:94:27:10"
+          ACTUAL_SHA1="$(keytool -printcert -jarfile "$AAB" | sed -n 's/.*SHA1: //p' | head -n 1)"
+          test "$ACTUAL_SHA1" = "$EXPECTED_SHA1"
+
+      - name: Upload release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: socialdiet-release-aab-v7
+          path: app/build/outputs/bundle/release/app-release.aab
+
+      - name: Export run id
+        run: |
+          printf 'run_id=%s\nartifact_name=socialdiet-release-aab-v7\n' "$GITHUB_RUN_ID" > latest-v7-run.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add latest-v7-run.txt
+          git commit -m 'Export v7 build run id'
+          git push
