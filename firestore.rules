@@ -66,7 +66,15 @@ service cloud.firestore {
         && (request.resource.data.recipientId == request.resource.data.userA
           || request.resource.data.recipientId == request.resource.data.userB);
 
-      allow read: if isParticipant(resource.data);
+      // sendFriendRequest() checks whether the deterministic friendship document exists
+      // before creating it. Permit that single-document existence check when the document
+      // does not exist, but keep existing friendship documents private to participants.
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/friendships/$(friendshipId))
+          || isParticipant(resource.data));
+
+      // Collection queries must still be constrained to friendships involving the caller.
+      allow list: if isParticipant(resource.data);
 
       // Only the recipient can convert a pending request to an accepted friendship.
       allow update: if isParticipant(resource.data)
