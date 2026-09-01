@@ -14,15 +14,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseUser
+import com.ridvanozdemir.socialdiet.auth.GoogleCredentialHelper
 import com.ridvanozdemir.socialdiet.data.FirebaseRepository
 import com.ridvanozdemir.socialdiet.data.model.UserProfile
 import com.ridvanozdemir.socialdiet.ui.screens.AuthScreen
@@ -33,6 +36,7 @@ import com.ridvanozdemir.socialdiet.ui.screens.LeaderboardScreen
 import com.ridvanozdemir.socialdiet.ui.screens.MealScreen
 import com.ridvanozdemir.socialdiet.ui.screens.ProfileScreen
 import com.ridvanozdemir.socialdiet.ui.screens.ProfileSetupScreen
+import kotlinx.coroutines.launch
 
 private data class Tab(val route: String, val label: String)
 
@@ -134,6 +138,8 @@ private fun LoadingScreen() {
 @Composable
 private fun MainApp(repository: FirebaseRepository, userId: String) {
     val navController = rememberNavController()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val tabs = listOf(
         Tab("home", "Bugün"),
         Tab("friends", "Arkadaşlar"),
@@ -185,7 +191,12 @@ private fun MainApp(repository: FirebaseRepository, userId: String) {
                 ProfileScreen(
                     repository = repository,
                     userId = userId,
-                    onSignOut = repository::signOut
+                    onSignOut = {
+                        scope.launch {
+                            runCatching { GoogleCredentialHelper.clearCredentialState(context) }
+                            repository.signOut()
+                        }
+                    }
                 )
             }
         }
