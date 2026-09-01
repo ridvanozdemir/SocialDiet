@@ -12,8 +12,8 @@ android {
         applicationId = "com.ridvanozdemir.socialdiet"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.3.4"
+        versionCode = 8
+        versionName = "0.3.5"
     }
 
     val releaseKeystorePath = System.getenv("SOCIALDIET_UPLOAD_KEYSTORE_PATH")
