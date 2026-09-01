@@ -5,107 +5,114 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Rear plate/chat bubble -->
-    <path
-        android:fillColor="#0D7187"
-        android:pathData="M61,37 A29,29 0,1 1,61 95 A29,29 0,1 1,61 37 Z" />
-    <path
-        android:fillColor="#0D7187"
-        android:pathData="M80,83 L94,91 L87,74 Z" />
-    <path
-        android:fillColor="#5ED9E2"
-        android:pathData="M61,41 A25,25 0,1 1,61 91 A25,25 0,1 1,61 41 Z" />
-    <path
-        android:fillColor="#5ED9E2"
-        android:pathData="M80,81 L90,87 L85,75 Z" />
-    <path
-        android:fillColor="#F7FEFF"
-        android:pathData="M61,46 A20,20 0,1 1,61 86 A20,20 0,1 1,61 46 Z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.76"
+        android:scaleY="0.76">
 
-    <!-- Front plate/chat bubble -->
-    <path
-        android:fillColor="#238C6B"
-        android:pathData="M44,14 A31,31 0,1 1,44 76 A31,31 0,1 1,44 14 Z" />
-    <path
-        android:fillColor="#238C6B"
-        android:pathData="M27,68 L16,85 L36,76 Z" />
-    <path
-        android:fillColor="#91E49A"
-        android:pathData="M44,18 A27,27 0,1 1,44 72 A27,27 0,1 1,44 18 Z" />
-    <path
-        android:fillColor="#91E49A"
-        android:pathData="M28,67 L20,80 L35,73 Z" />
-    <path
-        android:fillColor="#FBFFF9"
-        android:pathData="M44,23 A22,22 0,1 1,44 67 A22,22 0,1 1,44 23 Z" />
+        <!-- Rear plate/chat bubble -->
+        <path
+            android:fillColor="#0D7187"
+            android:pathData="M61,37 A29,29 0,1 1,61 95 A29,29 0,1 1,61 37 Z" />
+        <path
+            android:fillColor="#0D7187"
+            android:pathData="M80,83 L94,91 L87,74 Z" />
+        <path
+            android:fillColor="#5ED9E2"
+            android:pathData="M61,41 A25,25 0,1 1,61 91 A25,25 0,1 1,61 41 Z" />
+        <path
+            android:fillColor="#5ED9E2"
+            android:pathData="M80,81 L90,87 L85,75 Z" />
+        <path
+            android:fillColor="#F7FEFF"
+            android:pathData="M61,46 A20,20 0,1 1,61 86 A20,20 0,1 1,61 46 Z" />
 
-    <!-- Apple -->
-    <path
-        android:fillColor="#FFE7B6"
-        android:strokeColor="#F06B45"
-        android:strokeWidth="2.2"
-        android:strokeLineJoin="round"
-        android:pathData="M31,31 C27,27 22,30 22,36 C22,42 27,46 32,46 C37,46 42,42 42,36 C42,30 37,27 33,31 C32.4,32 31.7,32 31,31 Z" />
-    <path
-        android:fillColor="#39A65A"
-        android:pathData="M33,29 C36,25 40,25 42,28 C39,29 36,31 33,29 Z" />
-    <path android:fillColor="#7D4F24" android:pathData="M28.6,36.5 A1.4,1.9 0,1 1,28.6 40.3 A1.4,1.9 0,1 1,28.6 36.5 Z" />
-    <path android:fillColor="#7D4F24" android:pathData="M35.4,36.5 A1.4,1.9 0,1 1,35.4 40.3 A1.4,1.9 0,1 1,35.4 36.5 Z" />
+        <!-- Front plate/chat bubble -->
+        <path
+            android:fillColor="#238C6B"
+            android:pathData="M44,14 A31,31 0,1 1,44 76 A31,31 0,1 1,44 14 Z" />
+        <path
+            android:fillColor="#238C6B"
+            android:pathData="M27,68 L16,85 L36,76 Z" />
+        <path
+            android:fillColor="#91E49A"
+            android:pathData="M44,18 A27,27 0,1 1,44 72 A27,27 0,1 1,44 18 Z" />
+        <path
+            android:fillColor="#91E49A"
+            android:pathData="M28,67 L20,80 L35,73 Z" />
+        <path
+            android:fillColor="#FBFFF9"
+            android:pathData="M44,23 A22,22 0,1 1,44 67 A22,22 0,1 1,44 23 Z" />
 
-    <!-- Leafy greens -->
-    <path
-        android:fillColor="#4DBB4D"
-        android:strokeColor="#237A42"
-        android:strokeWidth="1.8"
-        android:pathData="M47,29 C51,23 58,24 60,29 C64,31 63,37 59,39 C58,45 52,47 48,43 C43,43 41,38 44,35 C42,32 44,29 47,29 Z" />
-    <path
-        android:fillColor="#A7E56C"
-        android:strokeColor="#237A42"
-        android:strokeWidth="1.2"
-        android:pathData="M48,43 C50,38 52,33 56,28 M51,36 L46,33 M53,34 L58,32" />
+        <!-- Apple -->
+        <path
+            android:fillColor="#FFE7B6"
+            android:strokeColor="#F06B45"
+            android:strokeWidth="2.2"
+            android:strokeLineJoin="round"
+            android:pathData="M31,31 C27,27 22,30 22,36 C22,42 27,46 32,46 C37,46 42,42 42,36 C42,30 37,27 33,31 C32.4,32 31.7,32 31,31 Z" />
+        <path
+            android:fillColor="#39A65A"
+            android:pathData="M33,29 C36,25 40,25 42,28 C39,29 36,31 33,29 Z" />
+        <path android:fillColor="#7D4F24" android:pathData="M28.6,36.5 A1.4,1.9 0,1 1,28.6 40.3 A1.4,1.9 0,1 1,28.6 36.5 Z" />
+        <path android:fillColor="#7D4F24" android:pathData="M35.4,36.5 A1.4,1.9 0,1 1,35.4 40.3 A1.4,1.9 0,1 1,35.4 36.5 Z" />
 
-    <!-- Grapes -->
-    <path android:fillColor="#7E49B7" android:pathData="M53,43 A3,3 0,1 1,53 49 A3,3 0,1 1,53 43 Z" />
-    <path android:fillColor="#945BD0" android:pathData="M58,43 A3,3 0,1 1,58 49 A3,3 0,1 1,58 43 Z" />
-    <path android:fillColor="#8A50C4" android:pathData="M55.5,47 A3,3 0,1 1,55.5 53 A3,3 0,1 1,55.5 47 Z" />
-    <path android:fillColor="#5AAE45" android:pathData="M56,41 C58,39 60,39 61,41 C59,41.5 57.5,42 56,41 Z" />
+        <!-- Leafy greens -->
+        <path
+            android:fillColor="#4DBB4D"
+            android:strokeColor="#237A42"
+            android:strokeWidth="1.8"
+            android:pathData="M47,29 C51,23 58,24 60,29 C64,31 63,37 59,39 C58,45 52,47 48,43 C43,43 41,38 44,35 C42,32 44,29 47,29 Z" />
+        <path
+            android:fillColor="#A7E56C"
+            android:strokeColor="#237A42"
+            android:strokeWidth="1.2"
+            android:pathData="M48,43 C50,38 52,33 56,28 M51,36 L46,33 M53,34 L58,32" />
 
-    <!-- Salmon -->
-    <path
-        android:fillColor="#FF8A4E"
-        android:strokeColor="#E76535"
-        android:strokeWidth="1.5"
-        android:pathData="M25,52 C30,48 39,48 45,53 C40,59 32,61 25,57 Z" />
-    <path
-        android:fillColor="#FFD08C"
-        android:strokeColor="#FFD08C"
-        android:strokeWidth="1.2"
-        android:pathData="M29,53 C33,51 37,51 41,53 M29,56 C33,54 37,54 40,55" />
+        <!-- Grapes -->
+        <path android:fillColor="#7E49B7" android:pathData="M53,43 A3,3 0,1 1,53 49 A3,3 0,1 1,53 43 Z" />
+        <path android:fillColor="#945BD0" android:pathData="M58,43 A3,3 0,1 1,58 49 A3,3 0,1 1,58 43 Z" />
+        <path android:fillColor="#8A50C4" android:pathData="M55.5,47 A3,3 0,1 1,55.5 53 A3,3 0,1 1,55.5 47 Z" />
+        <path android:fillColor="#5AAE45" android:pathData="M56,41 C58,39 60,39 61,41 C59,41.5 57.5,42 56,41 Z" />
 
-    <!-- Rear bubble fish -->
-    <path
-        android:fillColor="#5EB9E8"
-        android:strokeColor="#176C9B"
-        android:strokeWidth="1.8"
-        android:pathData="M66,57 C71,52 78,52 83,57 C78,62 71,62 66,57 Z" />
-    <path
-        android:fillColor="#5EB9E8"
-        android:strokeColor="#176C9B"
-        android:strokeWidth="1.8"
-        android:pathData="M66,57 L61,53 L61,61 Z" />
-    <path android:fillColor="#15547A" android:pathData="M79,55 A1.2,1.2 0,1 1,79 57.4 A1.2,1.2 0,1 1,79 55 Z" />
+        <!-- Salmon -->
+        <path
+            android:fillColor="#FF8A4E"
+            android:strokeColor="#E76535"
+            android:strokeWidth="1.5"
+            android:pathData="M25,52 C30,48 39,48 45,53 C40,59 32,61 25,57 Z" />
+        <path
+            android:fillColor="#FFD08C"
+            android:strokeColor="#FFD08C"
+            android:strokeWidth="1.2"
+            android:pathData="M29,53 C33,51 37,51 41,53 M29,56 C33,54 37,54 40,55" />
 
-    <!-- Rear bubble avocado -->
-    <path
-        android:fillColor="#8BD44F"
-        android:strokeColor="#3C9144"
-        android:strokeWidth="1.6"
-        android:pathData="M69,68 C73,63 79,64 81,69 C83,75 79,81 74,82 C69,82 65,78 66,74 C66,72 67,70 69,68 Z" />
-    <path android:fillColor="#CFEA72" android:pathData="M71,70 C74,67 78,68 79,72 C80,76 77,79 74,79 C71,79 69,76 70,73 C70,72 70.3,71 71,70 Z" />
-    <path android:fillColor="#8C5B2B" android:pathData="M74,72 A2.6,2.6 0,1 1,74 77.2 A2.6,2.6 0,1 1,74 72 Z" />
+        <!-- Rear bubble fish -->
+        <path
+            android:fillColor="#5EB9E8"
+            android:strokeColor="#176C9B"
+            android:strokeWidth="1.8"
+            android:pathData="M66,57 C71,52 78,52 83,57 C78,62 71,62 66,57 Z" />
+        <path
+            android:fillColor="#5EB9E8"
+            android:strokeColor="#176C9B"
+            android:strokeWidth="1.8"
+            android:pathData="M66,57 L61,53 L61,61 Z" />
+        <path android:fillColor="#15547A" android:pathData="M79,55 A1.2,1.2 0,1 1,79 57.4 A1.2,1.2 0,1 1,79 55 Z" />
 
-    <!-- Small herb accent -->
-    <path
-        android:fillColor="#47B85E"
-        android:pathData="M61,74 C57,70 53,71 52,75 C55,77 58,78 61,74 Z" />
+        <!-- Rear bubble avocado -->
+        <path
+            android:fillColor="#8BD44F"
+            android:strokeColor="#3C9144"
+            android:strokeWidth="1.6"
+            android:pathData="M69,68 C73,63 79,64 81,69 C83,75 79,81 74,82 C69,82 65,78 66,74 C66,72 67,70 69,68 Z" />
+        <path android:fillColor="#CFEA72" android:pathData="M71,70 C74,67 78,68 79,72 C80,76 77,79 74,79 C71,79 69,76 70,73 C70,72 70.3,71 71,70 Z" />
+        <path android:fillColor="#8C5B2B" android:pathData="M74,72 A2.6,2.6 0,1 1,74 77.2 A2.6,2.6 0,1 1,74 72 Z" />
+
+        <!-- Small herb accent -->
+        <path
+            android:fillColor="#47B85E"
+            android:pathData="M61,74 C57,70 53,71 52,75 C55,77 58,78 61,74 Z" />
+    </group>
 </vector>
