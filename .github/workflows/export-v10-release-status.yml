@@ -1,0 +1,42 @@
+name: Export v10 Release Status
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/export-v10-release-status.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export v10 release status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TARGET_SHA: 1e2891ee7770bce1e42d3ff09ec804f4856655e2
+        run: |
+          for i in $(seq 1 60); do
+            JSON="$(gh api "repos/$REPO/actions/workflows/build-v10-release-once.yml/runs?branch=main&per_page=20")"
+            RUN_ID="$(printf '%s' "$JSON" | jq -r --arg sha "$TARGET_SHA" '.workflow_runs[] | select(.head_sha==$sha) | .id' | head -n 1)"
+            if [ -n "$RUN_ID" ]; then
+              STATUS="$(printf '%s' "$JSON" | jq -r --arg sha "$TARGET_SHA" '.workflow_runs[] | select(.head_sha==$sha) | .status' | head -n 1)"
+              CONCLUSION="$(printf '%s' "$JSON" | jq -r --arg sha "$TARGET_SHA" '.workflow_runs[] | select(.head_sha==$sha) | .conclusion' | head -n 1)"
+              if [ "$STATUS" = "completed" ]; then
+                printf 'run_id=%s\nstatus=%s\nconclusion=%s\nhead_sha=%s\n' "$RUN_ID" "$STATUS" "$CONCLUSION" "$TARGET_SHA" > latest-v10-release-watch.txt
+                break
+              fi
+            fi
+            sleep 5
+          done
+          test -f latest-v10-release-watch.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add latest-v10-release-watch.txt
+          git commit -m 'Export v10 release watch status'
+          git push
