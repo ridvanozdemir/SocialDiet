@@ -26,7 +26,6 @@ jobs:
           auth_path = Path('app/src/main/java/com/ridvanozdemir/socialdiet/ui/screens/AuthScreen.kt')
           auth = auth_path.read_text()
 
-          # Imports/state used only by the Google sign-in button.
           for line in [
               'import androidx.compose.material3.OutlinedButton\n',
               'import androidx.compose.runtime.rememberCoroutineScope\n',
@@ -38,7 +37,6 @@ jobs:
           auth = auth.replace('    val context = LocalContext.current\n', '')
           auth = auth.replace('    val scope = rememberCoroutineScope()\n', '')
 
-          # Remove the complete divider + Google button while keeping email/password auth.
           pattern = re.compile(
               r'\n        Text\("veya", modifier = Modifier\.padding\(vertical = 8\.dp\)\)\n\n'
               r'        OutlinedButton\([\s\S]*?\n        \) \{\n            Text\("Google ile devam et"\)\n        \}\n',
@@ -86,3 +84,5 @@ jobs:
                   .github/workflows/release-aab.yml
           git commit -m 'Remove Google sign-in UI and mark AI calorie estimate as testing'
           git push
+
+# trigger v11 migration
