@@ -1,9 +1,11 @@
 package com.ridvanozdemir.socialdiet.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -19,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -182,7 +185,15 @@ private fun MainApp(repository: FirebaseRepository, userId: String) {
                 FriendsScreen(repository = repository, userId = userId)
             }
             composable("meal") {
-                MealScreen(repository = repository, userId = userId)
+                Column {
+                    Text(
+                        text = "⚠ AI ile kalori tahmini test aşamasındadır. Sonuçları kaydetmeden önce porsiyon ve kalori değerlerini kontrol edin.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                    )
+                    MealScreen(repository = repository, userId = userId)
+                }
             }
             composable("leaderboard") {
                 LeaderboardScreen(repository = repository, userId = userId)
