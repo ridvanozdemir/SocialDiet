@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -185,14 +186,16 @@ private fun MainApp(repository: FirebaseRepository, userId: String) {
                 FriendsScreen(repository = repository, userId = userId)
             }
             composable("meal") {
-                Column {
+                Column(modifier = Modifier.fillMaxSize()) {
                     Text(
                         text = "⚠ AI ile kalori tahmini test aşamasındadır. Sonuçları kaydetmeden önce porsiyon ve kalori değerlerini kontrol edin.",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
                     )
-                    MealScreen(repository = repository, userId = userId)
+                    Box(modifier = Modifier.weight(1f)) {
+                        MealScreen(repository = repository, userId = userId)
+                    }
                 }
             }
             composable("leaderboard") {
