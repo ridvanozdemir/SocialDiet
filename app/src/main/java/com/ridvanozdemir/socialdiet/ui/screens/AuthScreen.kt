@@ -11,7 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,23 +18,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.ridvanozdemir.socialdiet.auth.GoogleCredentialHelper
 import com.ridvanozdemir.socialdiet.data.FirebaseRepository
 import com.ridvanozdemir.socialdiet.data.RegistrationInput
-import kotlinx.coroutines.launch
 
 @Composable
 fun AuthScreen(repository: FirebaseRepository) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var registerMode by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -225,31 +218,6 @@ fun AuthScreen(repository: FirebaseRepository) {
             ) {
                 Text("Şifremi unuttum")
             }
-        }
-
-        Text("veya", modifier = Modifier.padding(vertical = 8.dp))
-
-        OutlinedButton(
-            enabled = !loading,
-            modifier = Modifier.fillMaxWidth(),
-            onClick = {
-                message = null
-                loading = true
-                scope.launch {
-                    val tokenResult = runCatching { GoogleCredentialHelper.requestIdToken(context) }
-                    tokenResult.onSuccess { token ->
-                        repository.signInWithGoogleIdToken(token) { result ->
-                            loading = false
-                            result.exceptionOrNull()?.let { showError(it.message ?: "Google ile giriş başarısız.") }
-                        }
-                    }.onFailure { error ->
-                        loading = false
-                        showError(error.message ?: "Google hesabı seçilemedi.")
-                    }
-                }
-            }
-        ) {
-            Text("Google ile devam et")
         }
 
         TextButton(
