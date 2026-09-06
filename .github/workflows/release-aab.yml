@@ -21,6 +21,11 @@ jobs:
       - name: Install Android SDK 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
+      - name: Verify app version
+        run: |
+          grep -q 'versionCode = 12' app/build.gradle.kts
+          grep -q 'versionName = "0.3.9"' app/build.gradle.kts
+
       - name: Install SocialDiet upload keystore
         env:
           SOCIALDIET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.SOCIALDIET_UPLOAD_KEYSTORE_BASE64 }}
@@ -76,5 +81,5 @@ jobs:
       - name: Upload release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: socialdiet-release-aab-v11
+          name: socialdiet-release-aab-v12
           path: app/build/outputs/bundle/release/app-release.aab
