@@ -27,7 +27,6 @@ jobs:
           git add app/src/main/java/com/ridvanozdemir/socialdiet/data/FirebaseRepository.kt \
                   app/src/main/java/com/ridvanozdemir/socialdiet/ui/screens/MealScreen.kt \
                   app/src/main/java/com/ridvanozdemir/socialdiet/ui/screens/LeaderboardScreen.kt \
-                  app/build.gradle.kts \
-                  .github/workflows/release-aab.yml
+                  app/build.gradle.kts
           git commit -m "Add manual meals and live league scoring"
           git push
