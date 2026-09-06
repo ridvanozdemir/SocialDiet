@@ -1,0 +1,33 @@
+name: Apply v12 Features Runner
+
+on:
+  push:
+    paths:
+      - 'v12-feature-trigger-2.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply migration script
+        run: python3 scripts/apply_v12_features.py
+
+      - name: Validate diff
+        run: git diff --check && git diff --stat
+
+      - name: Commit source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/ridvanozdemir/socialdiet/data/FirebaseRepository.kt \
+                  app/src/main/java/com/ridvanozdemir/socialdiet/ui/screens/MealScreen.kt \
+                  app/src/main/java/com/ridvanozdemir/socialdiet/ui/screens/LeaderboardScreen.kt \
+                  app/build.gradle.kts \
+                  .github/workflows/release-aab.yml
+          git commit -m "Add manual meals and live league scoring"
+          git push
