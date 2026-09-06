@@ -429,7 +429,13 @@ class FirebaseRepository(
             onResult(Result.failure(IllegalStateException("Bu kullanıcı için öğün kaydedilemez.")))
             return
         }
-        if (confirmedCalories !in 0..10000 || estimatedMassGrams !in 1.0..5000.0) {
+        val manualEntry = calorieSource == "manual"
+        val massIsValid = if (manualEntry) {
+            estimatedMassGrams == 0.0
+        } else {
+            estimatedMassGrams in 1.0..5000.0
+        }
+        if (confirmedCalories !in 0..10000 || !massIsValid) {
             onResult(Result.failure(IllegalArgumentException("Öğün değerleri geçersiz.")))
             return
         }
@@ -453,9 +459,44 @@ class FirebaseRepository(
                 "createdAt" to FieldValue.serverTimestamp()
             )
         ).addOnSuccessListener {
-            loadTodaySummary(userId) { }
-            onResult(Result.success(Unit))
+            loadTodaySummary(userId) { scoreResult ->
+                scoreResult.onSuccess {
+                    onResult(Result.success(Unit))
+                }.onFailure { error ->
+                    onResult(
+                        Result.failure(
+                            IllegalStateException(
+                                "Öğün kaydedildi ancak lig puanı güncellenemedi. Ligi yenileyerek tekrar dene.",
+                                error
+                            )
+                        )
+                    )
+                }
+            }
         }.addOnFailureListener { onResult(Result.failure(it)) }
+    }
+
+    fun saveManualMeal(
+        userId: String,
+        mealType: String,
+        calories: Int,
+        label: String,
+        onResult: (Result<Unit>) -> Unit
+    ) {
+        saveMeal(
+            userId = userId,
+            mealType = mealType,
+            aiLabel = label.trim().ifBlank { "Manuel giriş" },
+            aiConfidence = null,
+            calorieSource = "manual",
+            aiCalories = calories,
+            confirmedCalories = calories,
+            estimatedMassGrams = 0.0,
+            fatGrams = 0.0,
+            carbsGrams = 0.0,
+            proteinGrams = 0.0,
+            onResult = onResult
+        )
     }
 
     fun searchUsers(query: String, onResult: (Result<List<SocialProfile>>) -> Unit) {
@@ -1060,7 +1101,6 @@ class FirebaseRepository(
 
         fun adherenceScore(total: Int, target: Int): Int {
             if (target <= 0) return 0
-            if (total.toDouble() / target < 0.75) return 0
             val deviationPercent = abs(total - target).toDouble() / target * 100.0
             return (100.0 - deviationPercent).roundToInt().coerceIn(0, 100)
         }

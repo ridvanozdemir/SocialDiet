@@ -50,7 +50,7 @@ fun LeaderboardScreen(repository: FirebaseRepository, userId: String) {
     ) {
         Text("Lig", style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Sıralama, kimin daha az yediğine göre değil herkesin kendi kalori hedefine uyumuna göre hesaplanır.",
+            "Sıralama, herkesin kendi kalori hedefine ne kadar yaklaştığına göre 0-100 puanla hesaplanır. Hedefe yaklaştıkça puan artar, hedef aşılırsa tekrar düşer. Öğün kaydından sonra lig puanı güncellenir.",
             style = MaterialTheme.typography.bodyMedium
         )
 

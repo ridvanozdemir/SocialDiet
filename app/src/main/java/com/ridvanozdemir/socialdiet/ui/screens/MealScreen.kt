@@ -74,6 +74,9 @@ fun MealScreen(
     var selectedMealType by remember { mutableStateOf("LUNCH") }
     var massText by remember { mutableStateOf("") }
     var caloriesText by remember { mutableStateOf("") }
+    var manualMode by remember { mutableStateOf(false) }
+    var manualCaloriesText by remember { mutableStateOf("") }
+    var manualMealName by remember { mutableStateOf("") }
 
     DisposableEffect(analyzer, classifier) {
         onDispose {
@@ -137,6 +140,31 @@ fun MealScreen(
     ) {
         Text("Öğün Ekle", style = MaterialTheme.typography.headlineMedium)
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                modifier = Modifier.weight(1f),
+                selected = !manualMode,
+                onClick = {
+                    manualMode = false
+                    statusMessage = null
+                },
+                label = { Text("Fotoğraf ile") }
+            )
+            FilterChip(
+                modifier = Modifier.weight(1f),
+                selected = manualMode,
+                onClick = {
+                    manualMode = true
+                    statusMessage = null
+                },
+                label = { Text("Manuel kalori") }
+            )
+        }
+
+        if (!manualMode) {
         InfoCard(
             "Öğün fotoğrafı",
             "Kameradan yeni fotoğraf çek veya galeriden mevcut bir fotoğraf seç."
@@ -340,13 +368,107 @@ fun MealScreen(
             )
         }
 
+        } else {
+            ManualMealCard(
+                caloriesText = manualCaloriesText,
+                onCaloriesChanged = { manualCaloriesText = it.filter(Char::isDigit) },
+                mealName = manualMealName,
+                onMealNameChanged = { manualMealName = it.take(60) },
+                selectedMealType = selectedMealType,
+                onMealTypeSelected = { selectedMealType = it },
+                isSaving = isSaving,
+                onSave = {
+                    val calories = manualCaloriesText.toIntOrNull()
+                    if (calories == null || calories !in 1..10000) {
+                        statusMessage = "Kalori değerini 1-10000 kcal arasında gir."
+                        return@ManualMealCard
+                    }
+
+                    isSaving = true
+                    repository.saveManualMeal(
+                        userId = userId,
+                        mealType = selectedMealType,
+                        calories = calories,
+                        label = manualMealName
+                    ) { result ->
+                        isSaving = false
+                        result.onSuccess {
+                            manualCaloriesText = ""
+                            manualMealName = ""
+                            statusMessage = "Manuel öğün kaydedildi ve lig puanı güncellendi."
+                        }.onFailure { error ->
+                            statusMessage = error.message ?: "Manuel öğün kaydedilemedi."
+                        }
+                    }
+                }
+            )
+        }
+
         statusMessage?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
 
         Text(
-            "Not: Fotoğraftan kalori ve porsiyon hesabı yaklaşık bir AI tahminidir. " +
-                "Kaydetmeden önce yemek türünü, porsiyonu ve kaloriyi düzeltebilirsin.",
+            if (manualMode) {
+                "Manuel giriş, fotoğraf çekmeyi unuttuğun öğünleri günlük toplamına ve lig puanına ekler."
+            } else {
+                "Not: Fotoğraftan kalori ve porsiyon hesabı yaklaşık bir AI tahminidir. " +
+                    "Kaydetmeden önce yemek türünü, porsiyonu ve kaloriyi düzeltebilirsin."
+            },
             style = MaterialTheme.typography.bodySmall
         )
+    }
+}
+
+@Composable
+private fun ManualMealCard(
+    caloriesText: String,
+    onCaloriesChanged: (String) -> Unit,
+    mealName: String,
+    onMealNameChanged: (String) -> Unit,
+    selectedMealType: String,
+    onMealTypeSelected: (String) -> Unit,
+    isSaving: Boolean,
+    onSave: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Manuel kalori girişi", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Fotoğraf çekmediğin bir öğünün yaklaşık kalorisini elle ekleyebilirsin.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = mealName,
+                onValueChange = onMealNameChanged,
+                label = { Text("Öğün adı (isteğe bağlı)") },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = caloriesText,
+                onValueChange = onCaloriesChanged,
+                label = { Text("Toplam kalori (kcal)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true
+            )
+
+            Text("Öğün türü", style = MaterialTheme.typography.titleSmall)
+            MealTypeChips(selected = selectedMealType, onSelected = onMealTypeSelected)
+
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSaving,
+                onClick = onSave
+            ) {
+                if (isSaving) CircularProgressIndicator()
+                else Text("Manuel Öğünü Kaydet")
+            }
+        }
     }
 }
 
