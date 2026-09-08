@@ -7,6 +7,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 import numpy as np
 import tensorflow as tf
 from datasets import load_dataset
+from PIL import Image
 
 DATASET_NAME = "yunusserhat/TurkishFoods-25"
 IMAGE_SIZE = int(os.getenv("IMAGE_SIZE", "160"))
@@ -15,6 +16,9 @@ HEAD_EPOCHS = int(os.getenv("HEAD_EPOCHS", "4"))
 FINE_TUNE_EPOCHS = int(os.getenv("FINE_TUNE_EPOCHS", "1"))
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "ml/output"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+np.random.seed(42)
+tf.random.set_seed(42)
 
 CANONICAL_LABELS = [
     "asure",
@@ -45,12 +49,26 @@ CANONICAL_LABELS = [
 ]
 
 
+def center_crop_and_resize(image):
+    """Mirror the Android classifier preprocessing: square center crop -> resize."""
+    image = image.convert("RGB")
+    width, height = image.size
+    crop_size = min(width, height)
+    left = (width - crop_size) // 2
+    top = (height - crop_size) // 2
+    image = image.crop((left, top, left + crop_size, top + crop_size))
+    return image.resize(
+        (IMAGE_SIZE, IMAGE_SIZE),
+        resample=Image.Resampling.BILINEAR,
+    )
+
+
 def make_tf_dataset(split, training: bool):
     ds = hf[split]
 
     def generator():
         for sample in ds:
-            image = sample["image"].convert("RGB").resize((IMAGE_SIZE, IMAGE_SIZE))
+            image = center_crop_and_resize(sample["image"])
             yield np.asarray(image, dtype=np.float32), np.int32(sample["label"])
 
     tf_ds = tf.data.Dataset.from_generator(
@@ -72,6 +90,11 @@ num_classes = len(dataset_labels)
 if num_classes != len(CANONICAL_LABELS):
     raise RuntimeError(
         f"Unexpected class count: dataset={num_classes}, expected={len(CANONICAL_LABELS)}"
+    )
+if list(dataset_labels) != CANONICAL_LABELS:
+    raise RuntimeError(
+        "Dataset label order no longer matches the mobile label order. "
+        f"dataset={dataset_labels}, mobile={CANONICAL_LABELS}"
     )
 print(f"Dataset labels: {dataset_labels}")
 print(f"Canonical mobile labels: {CANONICAL_LABELS}")
@@ -173,6 +196,8 @@ metrics = {
     "dataset": DATASET_NAME,
     "dataset_labels": dataset_labels,
     "mobile_labels": CANONICAL_LABELS,
+    "dataset_label_order_matches": True,
+    "preprocessing": "square_center_crop_then_bilinear_resize",
     "image_size": IMAGE_SIZE,
     "classes": num_classes,
     "test_loss": float(test_loss),
