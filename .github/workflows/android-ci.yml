@@ -10,6 +10,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      HF_HOME: /tmp/huggingface
+      TF_CPP_MIN_LOG_LEVEL: "2"
+      HEAD_EPOCHS: "4"
+      FINE_TUNE_EPOCHS: "1"
+      BATCH_SIZE: "64"
+      IMAGE_SIZE: "160"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -45,13 +54,39 @@ jobs:
           echo "Debug signing SHA-1: $ACTUAL_SHA1"
           test "$ACTUAL_SHA1" = "$EXPECTED_SHA1"
 
-      - name: Fetch on-device nutrition model
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Prepare both AI models
         run: |
           mkdir -p app/src/main/assets
+
           curl --fail --location --retry 3 \
             --output app/src/main/assets/image2nutrition.tflite \
             "https://raw.githubusercontent.com/dant4ick/plate_track_ai/54ceb65915dc708f452b9f6830f1eb9ac27d17a5/assets/ml/image2nutrition.tflite"
           test "$(stat -c%s app/src/main/assets/image2nutrition.tflite)" -eq 26371792
+
+          if [ ! -s app/src/main/assets/turkish_food_classifier.tflite ] || \
+             [ ! -s app/src/main/assets/turkish_food_labels.txt ]; then
+            echo "Committed Turkish classifier is missing; training a fallback model for this build."
+            python -m pip install --upgrade pip
+            pip install "tensorflow-cpu==2.19.1" "datasets==3.6.0" "pillow==11.2.1"
+            python ml/train_turkish_food.py
+            cp ml/output/turkish_food_classifier.tflite app/src/main/assets/turkish_food_classifier.tflite
+            cp ml/output/turkish_food_labels.txt app/src/main/assets/turkish_food_labels.txt
+          fi
+
+          test -s app/src/main/assets/turkish_food_classifier.tflite
+          test "$(stat -c%s app/src/main/assets/turkish_food_classifier.tflite)" -gt 1000000
+          test -s app/src/main/assets/turkish_food_labels.txt
+          test "$(wc -l < app/src/main/assets/turkish_food_labels.txt)" -eq 25
+
+          echo "AI asset sizes:"
+          stat -c '%n %s bytes' app/src/main/assets/image2nutrition.tflite \
+            app/src/main/assets/turkish_food_classifier.tflite \
+            app/src/main/assets/turkish_food_labels.txt
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -60,6 +95,14 @@ jobs:
 
       - name: Build debug APK
         run: gradle :app:assembleDebug
+
+      - name: Verify APK contains both AI models
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          unzip -l "$APK" | grep -q 'assets/image2nutrition.tflite'
+          unzip -l "$APK" | grep -q 'assets/turkish_food_classifier.tflite'
+          unzip -l "$APK" | grep -q 'assets/turkish_food_labels.txt'
 
       - name: Verify APK signing certificate
         run: |
@@ -77,5 +120,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: socialdiet-debug-apk
+          name: socialdiet-v13-ai-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 90
