@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  train-and-build:
+  train:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -59,21 +59,13 @@ jobs:
             ml/output/metrics.json
           retention-days: 90
 
-      - name: Prepare AI assets
+      - name: Persist trained Turkish model assets
+        if: github.ref == 'refs/heads/main'
         run: |
           mkdir -p app/src/main/assets
           cp ml/output/turkish_food_classifier.tflite app/src/main/assets/turkish_food_classifier.tflite
           cp ml/output/turkish_food_labels.txt app/src/main/assets/turkish_food_labels.txt
-          curl --fail --location --retry 3 \
-            --output app/src/main/assets/image2nutrition.tflite \
-            "https://raw.githubusercontent.com/dant4ick/plate_track_ai/54ceb65915dc708f452b9f6830f1eb9ac27d17a5/assets/ml/image2nutrition.tflite"
-          test "$(stat -c%s app/src/main/assets/image2nutrition.tflite)" -eq 26371792
-          test "$(wc -l < app/src/main/assets/turkish_food_labels.txt)" -eq 25
-          test -s app/src/main/assets/turkish_food_classifier.tflite
 
-      - name: Persist trained Turkish model assets
-        if: github.ref == 'refs/heads/main'
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/assets/turkish_food_classifier.tflite app/src/main/assets/turkish_food_labels.txt
@@ -83,38 +75,3 @@ jobs:
             git commit -m "Update Turkish food classifier assets"
             git push origin HEAD:main
           fi
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.5.0"
-
-      - name: Build debug APK with both AI models
-        run: gradle :app:assembleDebug
-
-      - name: Verify APK contains both AI models
-        run: |
-          APK="app/build/outputs/apk/debug/app-debug.apk"
-          test -f "$APK"
-          unzip -l "$APK" | grep -q 'assets/image2nutrition.tflite'
-          unzip -l "$APK" | grep -q 'assets/turkish_food_classifier.tflite'
-          unzip -l "$APK" | grep -q 'assets/turkish_food_labels.txt'
-
-      - name: Upload Turkish AI debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: socialdiet-turkish-ai-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 90
