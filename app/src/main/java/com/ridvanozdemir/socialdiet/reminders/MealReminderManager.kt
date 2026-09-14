@@ -139,7 +139,7 @@ class MealReminderWorker(
         val type = MealReminderType.fromName(inputData.getString(KEY_MEAL_TYPE))
             ?: return Result.success()
         val targetDate = inputData.getString(KEY_TARGET_DATE)
-            ?.let { runCatching(LocalDate::parse).getOrNull() }
+            ?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
             ?: return Result.success()
 
         val signedInUid = FirebaseAuth.getInstance().currentUser?.uid
@@ -332,7 +332,7 @@ private object MealReminderStore {
 
     fun documentDate(doc: DocumentSnapshot): LocalDate? {
         val explicitDate = doc.getString(AUTO_DATE_FIELD)
-            ?.let { runCatching(LocalDate::parse).getOrNull() }
+            ?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
         if (explicitDate != null) return explicitDate
 
         return doc.getTimestamp("createdAt")
