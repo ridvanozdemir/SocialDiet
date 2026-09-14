@@ -2,6 +2,10 @@ name: Release AAB
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/release-aab.yml"
 
 jobs:
   bundle-release:
@@ -32,8 +36,8 @@ jobs:
 
       - name: Verify app version
         run: |
-          grep -q 'versionCode = 13' app/build.gradle.kts
-          grep -q 'versionName = "0.4.0"' app/build.gradle.kts
+          grep -q 'versionCode = 14' app/build.gradle.kts
+          grep -q 'versionName = "0.4.1"' app/build.gradle.kts
 
       - name: Install SocialDiet upload keystore
         env:
@@ -124,6 +128,6 @@ jobs:
       - name: Upload release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: socialdiet-release-aab-v13
+          name: socialdiet-release-aab-v14
           path: app/build/outputs/bundle/release/app-release.aab
           retention-days: 90
