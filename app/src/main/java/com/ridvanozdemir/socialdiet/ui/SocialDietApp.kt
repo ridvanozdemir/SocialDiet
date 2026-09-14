@@ -1,5 +1,10 @@
 package com.ridvanozdemir.socialdiet.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -31,6 +37,8 @@ import com.google.firebase.auth.FirebaseUser
 import com.ridvanozdemir.socialdiet.auth.GoogleCredentialHelper
 import com.ridvanozdemir.socialdiet.data.FirebaseRepository
 import com.ridvanozdemir.socialdiet.data.model.UserProfile
+import com.ridvanozdemir.socialdiet.reminders.MealAutoEstimateReconciler
+import com.ridvanozdemir.socialdiet.reminders.MealReminderScheduler
 import com.ridvanozdemir.socialdiet.ui.screens.AuthScreen
 import com.ridvanozdemir.socialdiet.ui.screens.EmailVerificationScreen
 import com.ridvanozdemir.socialdiet.ui.screens.FriendsScreen
@@ -151,6 +159,17 @@ private fun MainApp(repository: FirebaseRepository, userId: String) {
         Tab("profile", "Profil")
     )
 
+    RequestMealNotificationPermission()
+
+    LaunchedEffect(userId) {
+        MealReminderScheduler.scheduleAll(context.applicationContext, userId)
+    }
+
+    DisposableEffect(userId) {
+        val registration = MealAutoEstimateReconciler.observeAndReconcile(userId)
+        onDispose { registration.remove() }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -212,6 +231,34 @@ private fun MainApp(repository: FirebaseRepository, userId: String) {
                     }
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun RequestMealNotificationPermission() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+    val context = LocalContext.current
+    val preferences = remember(context) {
+        context.getSharedPreferences("socialdiet_notifications", android.content.Context.MODE_PRIVATE)
+    }
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {
+        val alreadyGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        val alreadyRequested = preferences.getBoolean("meal_reminder_permission_requested", false)
+
+        if (!alreadyGranted && !alreadyRequested) {
+            preferences.edit()
+                .putBoolean("meal_reminder_permission_requested", true)
+                .apply()
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 }
